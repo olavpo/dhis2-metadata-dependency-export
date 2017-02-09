@@ -1,0 +1,10 @@
+{
+  "name": "DHIS2-metadata-export",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "q": "^1.4.1",
+    "request": "^2.79.0",
+    "moment": "^2.14.1"
+  }
+}
