@@ -3,5 +3,20 @@
 	"url": "http://localhost/dhis",
     "user": "admin",
     "password": "district"
+  },
+  "export": {
+    "type": "completeAggregate",
+    "publicAccess": "r-------",
+    "dataSetIds": ["OyutuMOPgkt", "lYNYevNTO7B", "Yhk4Ee59d9y", "VQTEps77HLq", "Fn5XKDV6WRY", "rSfhnkAdm5y", "kiODgwGG9I2"],
+    "dashboardIds": ["BwYHhBSvLNL", "MaJqTSteIqg", "VtRtBqorLfR", "dp6xqlPGxbA", "xJXvUOEhnE9", "L2UmLVcb6Dm"],
+    "dataElementGroupIds": [],
+    "indicatorGroupIds": [],
+    "otherObjects": [
+      {
+        "type": "charts",
+        "ids": []
   }
+    ]
+  },
+  "output": "/Users/Olav/Desktop/tb.json"
 }

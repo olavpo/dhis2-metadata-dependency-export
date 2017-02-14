@@ -11,7 +11,7 @@
 	module.exports.get = get;
 	module.exports.post = post;
 
-	var debug = false;
+	var debug = true;
 
 
 	function post(url, payload) {
@@ -111,7 +111,7 @@
 
 		if (!getQ) getQ = [];
 
-		getQ.push({ 'url': url, 'deferred': deferred, 'serverInfo': serverInfo});
+		getQ.push({ 'url': url, 'deferred': deferred});
 
 		getNow();
 
@@ -128,15 +128,15 @@
 			getCurrent = getQ.pop();
 		}
 
-		var url = getCurrent.conf.dhis.url + getCurrent.url;
+		var url = conf.dhis.url + getCurrent.url;
 		if (debug) console.log("GET request: " + url);
 
 		request.get({
 			uri: url,
 			json: true,
 			auth: {
-				'user': getCurrent.conf.dhis.user,
-				'pass': getCurrent.conf.dhis.password
+				'user': conf.dhis.user,
+				'pass': conf.dhis.password
 			},
 			forever: true
 		}, function (error, response, data) {
@@ -147,7 +147,7 @@
 			}
 			else {
 				console.log("Error in GET");
-				console.log(error.message);
+				console.log(error);
 				getCurrent.deferred.reject({'data': data, 'error': error, 'status': response});
 				getCurrent = null;
 				getNow();
