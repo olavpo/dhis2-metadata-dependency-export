@@ -19,10 +19,14 @@
 		if (conf.export.type === 'completeAggregate') {
 			exportCompleteAggregate();
 		}
+
+		if (conf.export.type === 'dashboardAggregate') {
+			exportDashboardAggregate();
+		}
 	}
 
 
-	/** COMPLETE **/
+	/** COMPLETE AGGREGATE EXPORT **/
 	function exportCompleteAggregate() {
 		var promises = [];
 
@@ -60,7 +64,7 @@
 							metaData.indicators = result.indicators;
 
 							//Get data elements, based on favorites, datasets and indicators
-							dataElements().then(function(result) {
+							dataElements(false).then(function(result) {
 								metaData.dataElements = result.dataElements;
 
 								//Get LegendSet, categoryCombo, indicatorTypes
@@ -103,70 +107,120 @@
 
 	function exportCompleteAggregatePostProcess() {
 
-		//Remove "user", "userGroupAccesses" for applicable objects, set publicaccess according to configuration.json
-		for (var objectType in metaData) {
-			var obj = metaData[objectType];
-			for (var j = 0; j < obj.length; j++) {
-				if (obj[j].hasOwnProperty('user')) delete obj[j].user;
-				if (obj[j].hasOwnProperty('userGroupAccesses')) delete obj[j].userGroupAccesses;
-				if (obj[j].hasOwnProperty('publicAccess')) obj[j].publicAccess = conf.export.publicAccess;
+		removeOwnership();
 
-			}
-		}
+		verifyFavorites();
+
+		setDefaultUid();
 
 		//Remove orgunit assignment from datasets
 		for (var i = 0; i < metaData.dataSets.length; i++) {
 			metaData.dataSets[i].organisationUnits = [];
 		}
 
-
-		//Check for hardcoded orgunits in favorites (mapViews, reportTables, charts), print warning
-		//Consider replacing by "user orgunit children or similar"
-		for (var i = 0; i < metaData.charts.length; i++) {
-			var chart = metaData.charts[i];
-			if (chart.organisationUnits.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses fixed orgunits");
-			if (chart.organisationUnitLevels.length > 0) console.log("WARNING: chart " + chart.name + " (" + chart.id + ") uses orgunit levels");
-			if (chart.organisationUnitGroups.length > 0) console.log("WARNING: chart " + chart.name + " (" + chart.id + ") uses orgunit groups");
-		}
-		for (var i = 0; i < metaData.reportTables.length; i++) {
-			var reportTable = metaData.reportTables[i];
-			if (reportTable.organisationUnits.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses fixed orgunits");
-			if (reportTable.organisationUnitLevels.length > 0) console.log("WARNING: reportTable " + reportTable.name + " (" + reportTable.id + ") uses orgunit levels");
-			if (reportTable.organisationUnitGroups.length > 0) console.log("WARNING: reportTable " + reportTable.name + " (" + reportTable.id + ") uses orgunit groups");
-		}
-		var mapViewIssues = [];
-		for (var i = 0; i < metaData.mapViews.length; i++) {
-			var mapView = metaData.mapViews[i];
-			if (mapView.organisationUnits.length > 0) {
-				console.log("mapView " + mapView.id + " uses fixed orgunits");
-				mapViewIssues.push(mapView.id);
-			}
-			if (mapView.organisationUnitLevels.length > 0) {
-				console.log("mapView " + mapView.id + " uses orgunit levels");
-			}
-		}
-		if (mapViewIssues.length > 0) {
-			d2.get('/api/maps.json?fields=name,id&paging=false&filter=mapViews.id:in:[' + mapViewIssues.join(',') + ']').then(function(data) {
-				console.log(data);
-			});
-		}
-
-
 		//Check for (currently) unsupported favorites types, e.g. data element group sets etc
 
 
+		saveFile();
+	}
 
 
+	/** DASHBOARD AGGREGATE EXPORT **/
+	function exportDashboardAggregate() {
+		var promises = [];
 
+		//Get dataSets and dashboards
+		object('dashboards', conf.export.dashboardIds).then(function(result) {
+			metaData.dashboards = result.dashboards;
 
-		//Save file
-		jsonfile.writeFile(conf.output, metaData, function (err) {
-			if (!err) console.log("Saved metadata to " + conf.output);
-			else {
-				console.log("Error saving metadata file:");
-				console.error(err);
-			}
+			//Get dashboardItems
+			dashboardItems().then(function(result) {
+				metaData.dashboardItems = result;
+
+				//Get dashboard content - favorites, resources, reports
+				dashboardContent().then(function(result) {
+					metaData.charts = result.charts;
+					metaData.maps = result.maps;
+					metaData.reportTables = result.reportTables;
+					metaData.documents = result.documents;
+					metaData.reports = result.reports;
+
+					//Get mapViews
+					mapViews().then(function(result) {
+						metaData.mapViews = result;
+
+						//Get indicators, based on favorites and datasets
+						indicators().then(function(result) {
+							metaData.indicators = result.indicators;
+
+							//Get data elements, based on favorites, datasets and indicators
+							dataElements(true).then(function(result) {
+								metaData.dataElements = result.dataElements;
+
+								//Get LegendSet, categoryCombo, indicatorTypes
+								promises = [];
+								promises.push(legendSets());
+								promises.push(categoryCombos()); //Do we want this?
+								promises.push(indicatorTypes());
+								Q.all(promises).then(function(results) {
+									metaData.legendSets = results[0].legendSets;
+									metaData.categoryCombos = results[1].categoryCombos;
+									metaData.indicatorTypes = results[2].indicatorTypes;
+
+									//Get legends, categories, categoryOptionCombos
+									promises = [];
+									promises.push(legends());
+									promises.push(categories());
+									promises.push(categoryOptionCombos());
+
+									Q.all(promises).then(function(results) {
+										metaData.legends = results[0].legends;
+										metaData.categories = results[1].categories;
+										metaData.categoryOptionCombos = results[2].categoryOptionCombos;
+
+										//Get categoryoptions
+										categoryOptions().then(function(result) {
+											metaData.categoryOptions = result.categoryOptions;
+
+											console.log("Done exporting");
+											exportDashboardAggregatePostProcess();
+										});
+									});
+								});
+							});
+						});
+					});
+				});
+			});
 		});
+	}
+
+
+	function exportDashboardAggregatePostProcess() {
+
+		removeOwnership();
+
+		verifyFavorites();
+
+		setDefaultUid();
+
+		//Convert data elements to indicators - //TODO: Data element operands are different!
+		dataElementToIndicator();
+
+		//Empty indicator formulas
+		clearIndicatorFormulas();
+
+		//Modify favorites with unsupported disaggregations
+		flattenFavorites();
+
+		//Remove input-type elements
+		delete metaData.dataElements;
+		delete metaData.categories;
+		delete metaData.categoryOptionCombos;
+		delete metaData.categoryOptions;
+		delete metaData.categoryCombos;
+
+		saveFile();
 	}
 
 
@@ -176,7 +230,7 @@
 		return d2.get('/api/' + object + '.json?filter=id:in:[' + ids.join(',') + ']&fields=:owner&paging=false');
 	}
 
-	//Specific objects
+	//Specific objects - fetched based on existing object in metaData variable
 	function dashboardItems() {
 		var deferred = Q.defer();
 
@@ -295,7 +349,7 @@
 		var ids = [];
 
 		//Indicators from datasets
-		for (var i = 0; i < metaData.dataSets.length; i++) {
+		for (var i = 0; metaData.dataSets && i < metaData.dataSets.length; i++) {
 			for (var j = 0; j < metaData.dataSets[i].indicators.length; j++) {
 				ids.push(metaData.dataSets[i].indicators[j].id);
 			}
@@ -316,11 +370,11 @@
 		return object('indicators', ids);
 	}
 
-	function dataElements() {
+	function dataElements(explicitOnly) {
 		var ids = [];
 
 		//Data elements from datasets
-		for (var i = 0; i < metaData.dataSets.length; i++) {
+		for (var i = 0; metaData.dataSets && i < metaData.dataSets.length; i++) {
 			for (var j = 0; j < metaData.dataSets[i].dataSetElements.length; j++) {
 				ids.push(metaData.dataSets[i].dataSetElements[j].dataElement.id);
 			}
@@ -339,7 +393,7 @@
 		}
 
 		//Data elements from indicator formulas
-		for (var i = 0; i < metaData.indicators.length; i++) {
+		for (var i = 0;!explicitOnly && i < metaData.indicators.length; i++) {
 			var result = idsFromIndicatorFormula(metaData.indicators[i].numerator, metaData.indicators[i].denominator, true);
 			for (var j = 0; j < result.length; j++) {
 				ids.push(result[j]);
@@ -355,7 +409,7 @@
 			//LegendSets from applicable object types
 			var types = ['charts', 'mapViews', 'reportTables', 'dataSets', 'dataElements', 'indicators'];
 			for (var k = 0; k < types.length; k++) {
-				for (var i = 0; i < metaData[types[k]].length; i++) {
+				for (var i = 0; metaData[types[k]] && i < metaData[types[k]].length; i++) {
 					var obj = metaData[types[k]][i];
 					if (obj.hasOwnProperty('legendSet')) ids.push(obj.legendSet.id);
 					if (obj.hasOwnProperty('legendSets')) {
@@ -441,7 +495,226 @@
 
 
 
+	/** MODIFICATION AND HELPER FUNCTIONS **/
+
+	//Get name of category with the given ID
+	function categoryName(id) {
+		for (var i = 0; metaData.categories && metaData.categories && i < metaData.categories.length; i++) {
+			if (metaData.categories[i].id === id) return metaData.categories[i].name;
+		}
+
+		return 'ERROR';
+	}
+
+
+	//Modify favorites, removing/warning about unsupported data disaggregations
+	function flattenFavorites() {
+		for (var i = 0; metaData.charts && i < metaData.charts.length; i++) {
+			var chart = metaData.charts[i];
+			var message = '[MODIFICATIONS:\n';
+			for (var j = 0; j < chart.categoryDimensions.length; j++) {
+				var dec = chart.categoryDimensions[j].dataElementCategory.id;
+				message += 'Add ' + categoryName(dec) + ' as ';
+				message += chart.category === dec ? 'category' : 'series' + ' dimension\n';
+			}
+			if (chart.categoryDimensions.length > 0) {
+				chart.description = message + 'END MODIFICATIONS]\n' + chart.description;
+				chart.categoryDimensions = [];
+			}
+
+			if (chart.categoryOptionGroups.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses categoryOptionGroups");
+			if (chart.dataElementGroups.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses dataElementGroups");
+		}
+
+
+		for (var i = 0; metaData.reportTables && i < metaData.reportTables.length; i++) {
+			var reportTable = metaData.reportTables[i];
+			var message = '[MODIFICATIONS:\n';
+			for (var j = 0; j < reportTable.categoryDimensions.length; j++) {
+				var dec = reportTable.categoryDimensions[j].dataElementCategory.id;
+
+				for (var k = 0; k < reportTable.columnDimensions.lenght; k++) {
+					if (reportTable.columnDimensions[k] = dec) {
+						message += 'Add ' + categoryName(dec) + ' as column dimension\n'
+					}
+				}
+
+				for (var k = 0; k < reportTable.rowDimensions.lenght; k++) {
+					if (reportTable.columnDimensions[k] = dec) {
+						message += 'Add ' + categoryName(dec) + ' as row dimension\n'
+					}
+				}
+			}
+			if (reportTable.categoryDimensions.length > 0) {
+				reportTable.description = message + 'END MODIFICATIONS]\n' + reportTable.description;
+				reportTable.categoryDimensions = [];
+			}
+
+
+			if (reportTable.categoryOptionGroups.length > 0) console.log("WARNING: reportTable " + reportTable.name + " (" + reportTable.id + ") uses categoryOptionGroups");
+			if (reportTable.dataElementGroups.length > 0) console.log("WARNING: reportTable " + reportTable.name + " (" + reportTable.id + ") uses dataElementGroups");
+		}
+	}
+
+
+	//Empty indicator formulas
+	function clearIndicatorFormulas() {
+		for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
+			metaData.indicators[i].numerator = '-1';
+			metaData.indicators[i].denominator = '1';
+		}
+	}
+
+
+	//Save all data elements as indicators
+	function dataElementToIndicator() {
+
+		for (var i = 0; metaData.dataElements && i < metaData.dataElements.length; i++) {
+			var de = metaData.dataElements[i];
+
+			var indicator = {
+				'id': de.id,
+				'code': de.code ? de.code : null,
+				'name': conf.export.placeHolder + ' ' + de.name,
+				'shortName': de.shortName,
+				'description': de.description ? de.description : null,
+				'indicatorType': {"id": numberIndicatorType()},
+				'numerator': '-1',
+				'denominator': '1',
+				'numeratorDescription': de.name,
+				'denominatorDescription': '1',
+				'annualized': false,
+				'publicAccess': conf.export.publicAccess,
+				'translations': de.translations ? de.translations : null
+			}
+
+			if (!metaData.indicators) metaData.indicators = [];
+			metaData.indicators.push(indicator);
+		}
+	}
+
+
+	//Use "hardcoded" UIDs for default combo, category etc
+	function setDefaultUid() {
+
+		//Set "default" UID to current hardcoded version - for >= 2.26 we could leave it out and point to null, though this wouldn't work with custom forms
+		var currentDefault, defaultDefault, types = ['categoryOptions', 'categories', 'categoryOptionCombos', 'categoryCombos'];
+		for (var k = 0; k < types.length; k++) {
+			for (var i = 0; metaData[types[k]] && i < metaData[types[k]].length; i++) {
+				if (metaData[types[k]][i].name === 'default') currentDefault = metaData[types[k]][i].id;
+			}
+
+			switch (types[k]) {
+				case 'categoryOptions':
+					defaultDefault = "xYerKDKCefk";
+					break;
+				case 'categories':
+					defaultDefault = "GLevLNI9wkl";
+					break;
+				case 'categoryOptionCombos':
+					defaultDefault = "HllvX50cXC0";
+					break;
+				case 'categoryCombos':
+					defaultDefault = "bjDvmb4bfuf";
+					break;
+			}
+
+			//search and replace metaData as text, to make sure customs forms are included
+			var regex = new RegExp(currentDefault, "g");
+			metaData = JSON.parse(JSON.stringify(metaData).replace(regex, defaultDefault));
+		}
+	}
+
+
+	//Remove "user", "userGroupAccesses" for applicable objects, set publicaccess according to configuration.json
+	function removeOwnership() {
+		for (var objectType in metaData) {
+			var obj = metaData[objectType];
+			for (var j = 0; j < obj.length; j++) {
+				if (obj[j].hasOwnProperty('user')) delete obj[j].user;
+				if (obj[j].hasOwnProperty('userGroupAccesses')) delete obj[j].userGroupAccesses;
+				if (obj[j].hasOwnProperty('publicAccess')) obj[j].publicAccess = conf.export.publicAccess;
+
+			}
+		}
+	}
+
+
+	//Check for hardcoded orgunits in favorites (mapViews, reportTables, charts), print warning
+	function verifyFavorites() {
+
+		//Consider replacing by "user orgunit children or similar"
+		for (var i = 0; metaData.charts && i < metaData.charts.length; i++) {
+			var chart = metaData.charts[i];
+			if (chart.organisationUnits.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses fixed orgunits");
+			if (chart.organisationUnitLevels.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses orgunit levels");
+			if (chart.organisationUnitGroups.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses orgunit groups");
+		}
+		for (var i = 0; metaData.reportTables && i < metaData.reportTables.length; i++) {
+			var reportTable = metaData.reportTables[i];
+			if (reportTable.organisationUnits.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses fixed orgunits");
+			if (reportTable.organisationUnitLevels.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses orgunit levels");
+			if (reportTable.organisationUnitGroups.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses orgunit groups");
+		}
+		var mapViewIssues = [];
+		for (var i = 0; metaData.mapViews && i < metaData.mapViews.length; i++) {
+			var mapView = metaData.mapViews[i];
+			if (mapView.organisationUnits.length > 0) {
+				console.log("mapView " + mapView.id + " uses fixed orgunits");
+				mapViewIssues.push(mapView.id);
+			}
+			if (mapView.organisationUnitLevels.length > 0) {
+				console.log("mapView " + mapView.id + " uses orgunit levels");
+			}
+		}
+		if (mapViewIssues.length > 0) {
+			d2.get('/api/maps.json?fields=name,id&paging=false&filter=mapViews.id:in:[' + mapViewIssues.join(',') + ']').then(function(data) {
+				console.log(data);
+			});
+		}
+	}
+
+
+	//Returns number indicator type, adds new if it does not exist
+	function numberIndicatorType() {
+
+		for (var i = 0; metaData.indicatorTypes && i < metaData.indicatorTypes.length; i++) {
+			if (metaData.indicatorTypes[i].number) return metaData.indicatorTypes[i].id;
+		}
+
+		if (!metaData.indicatorTypes) metaData.indicatorTypes = [];
+		var template = {
+			"factor": 1,
+			"id": "kHy61PbChXr",
+			"name":	"Numerator only",
+			"number": true,
+			"translations": [
+					{
+						"locale": "fr",
+						"property":	"NAME",
+						"value": "Numérateur seulement"
+					}
+			]
+		};
+
+		metaData.indicatorTypes.push(template);
+		return template.id;
+	}
+
+
 	/** UTILS **/
+	function saveFile() {
+		//Save file
+		jsonfile.writeFile(conf.output, metaData, function (err) {
+			if (!err) console.log("Saved metadata to " + conf.output);
+			else {
+				console.log("Error saving metadata file:");
+				console.error(err);
+			}
+		});
+	}
+
+
 	function plainIdsFromObjects(idObjects) {
 		var ids = [];
 		for (var i = 0; i < idObjects.length; i++) {
