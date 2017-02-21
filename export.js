@@ -8,19 +8,35 @@
 	var d2 = require('./bin/d2.js');
 
 	var metaData;
+	var exportQueue = [];
+	var currentExport;
 	run();
 
 	/**
 	 * Start the export
 	 */
 	function run() {
+		for (var i = 0; i < conf.export.length; i++) {
+			exportQueue.push(conf.export[i]);
+		}
+
+		nextExport();
+	}
+
+	function nextExport() {
+		currentExport = exportQueue.pop();
+		if (!currentExport) {
+			console.log("All exports done!");
+			return;
+		}
+
 		metaData = {};
 
-		if (conf.export.type === 'completeAggregate') {
+		if (currentExport.type === 'completeAggregate') {
 			exportCompleteAggregate();
 		}
 
-		if (conf.export.type === 'dashboardAggregate') {
+		if (currentExport.type === 'dashboardAggregate') {
 			exportDashboardAggregate();
 		}
 	}
@@ -31,8 +47,8 @@
 		var promises = [];
 
 		//Get dataSets and dashboards
-		promises.push(object('dataSets', conf.export.dataSetIds));
-		promises.push(object('dashboards', conf.export.dashboardIds));
+		promises.push(object('dataSets', currentExport.dataSetIds));
+		promises.push(object('dashboards', currentExport.dashboardIds));
 		Q.all(promises).then(function(results) {
 			metaData.dataSets = results[0].dataSets;
 			metaData.dashboards = results[1].dashboards;
@@ -122,6 +138,8 @@
 
 
 		saveFile();
+
+		nextExport();
 	}
 
 
@@ -130,7 +148,7 @@
 		var promises = [];
 
 		//Get dataSets and dashboards
-		object('dashboards', conf.export.dashboardIds).then(function(result) {
+		object('dashboards', currentExport.dashboardIds).then(function(result) {
 			metaData.dashboards = result.dashboards;
 
 			//Get dashboardItems
@@ -157,34 +175,33 @@
 							dataElements(true).then(function(result) {
 								metaData.dataElements = result.dataElements;
 
-								//Get LegendSet, categoryCombo, indicatorTypes
+							//Get LegendSet, categoryCombo, indicatorTypes
+							promises = [];
+							promises.push(legendSets());
+							promises.push(categoryCombos()); //Do we want this?
+							promises.push(indicatorTypes());
+							Q.all(promises).then(function(results) {
+								metaData.legendSets = results[0].legendSets;
+								metaData.categoryCombos = results[1].categoryCombos;
+								metaData.indicatorTypes = results[2].indicatorTypes;
+
+								//Get legends, categories, categoryOptionCombos
 								promises = [];
-								promises.push(legendSets());
-								promises.push(categoryCombos()); //Do we want this?
-								promises.push(indicatorTypes());
+								promises.push(legends());
+								promises.push(categories());
+								promises.push(categoryOptionCombos());
+
 								Q.all(promises).then(function(results) {
-									metaData.legendSets = results[0].legendSets;
-									metaData.categoryCombos = results[1].categoryCombos;
-									metaData.indicatorTypes = results[2].indicatorTypes;
+									metaData.legends = results[0].legends;
+									metaData.categories = results[1].categories;
+									metaData.categoryOptionCombos = results[2].categoryOptionCombos;
 
-									//Get legends, categories, categoryOptionCombos
-									promises = [];
-									promises.push(legends());
-									promises.push(categories());
-									promises.push(categoryOptionCombos());
+									//Get categoryoptions
+									categoryOptions().then(function(result) {
+										metaData.categoryOptions = result.categoryOptions;
 
-									Q.all(promises).then(function(results) {
-										metaData.legends = results[0].legends;
-										metaData.categories = results[1].categories;
-										metaData.categoryOptionCombos = results[2].categoryOptionCombos;
-
-										//Get categoryoptions
-										categoryOptions().then(function(result) {
-											metaData.categoryOptions = result.categoryOptions;
-
-											console.log("Done exporting");
-											exportDashboardAggregatePostProcess();
-										});
+										console.log("Done exporting");
+										exportDashboardAggregatePostProcess();
 									});
 								});
 							});
@@ -192,6 +209,7 @@
 					});
 				});
 			});
+		});
 		});
 	}
 
@@ -221,6 +239,8 @@
 		delete metaData.categoryCombos;
 
 		saveFile();
+
+		nextExport();
 	}
 
 
@@ -267,7 +287,7 @@
 	}
 
 	function sections() {
-		return d2.get('/api/sections.json?filter=dataSet.id:in:[' + conf.export.dataSetIds.join(',') + ']&fields=:owner&paging=false');
+		return d2.get('/api/sections.json?filter=dataSet.id:in:[' + currentExport.dataSetIds.join(',') + ']&fields=:owner&paging=false');
 	}
 
 	function dashboardContent() {
@@ -575,7 +595,7 @@
 			var indicator = {
 				'id': de.id,
 				'code': de.code ? de.code : null,
-				'name': conf.export.placeHolder + ' ' + de.name,
+				'name': currentExport.placeHolder + ' ' + de.name,
 				'shortName': de.shortName,
 				'description': de.description ? de.description : null,
 				'indicatorType': {"id": numberIndicatorType()},
@@ -584,7 +604,7 @@
 				'numeratorDescription': de.name,
 				'denominatorDescription': '1',
 				'annualized': false,
-				'publicAccess': conf.export.publicAccess,
+				'publicAccess': currentExport.publicAccess,
 				'translations': de.translations ? de.translations : null
 			}
 
@@ -633,7 +653,7 @@
 			for (var j = 0; j < obj.length; j++) {
 				if (obj[j].hasOwnProperty('user')) delete obj[j].user;
 				if (obj[j].hasOwnProperty('userGroupAccesses')) delete obj[j].userGroupAccesses;
-				if (obj[j].hasOwnProperty('publicAccess')) obj[j].publicAccess = conf.export.publicAccess;
+				if (obj[j].hasOwnProperty('publicAccess')) obj[j].publicAccess = currentExport.publicAccess;
 
 			}
 		}
@@ -705,8 +725,8 @@
 	/** UTILS **/
 	function saveFile() {
 		//Save file
-		jsonfile.writeFile(conf.output, metaData, function (err) {
-			if (!err) console.log("Saved metadata to " + conf.output);
+		jsonfile.writeFileSync(currentExport.output, metaData, function (err) {
+			if (!err) console.log("Saved metadata to " + currentExport.output);
 			else {
 				console.log("Error saving metadata file:");
 				console.error(err);
