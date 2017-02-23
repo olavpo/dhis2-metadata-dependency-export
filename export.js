@@ -10,6 +10,7 @@
 	var metaData;
 	var exportQueue = [];
 	var currentExport;
+	var uids;
 	run();
 
 	/**
@@ -123,10 +124,13 @@
 
 	function exportCompleteAggregatePostProcess() {
 
+		//Remove ownership references, and set publicaccess as outlines in configuration file
 		removeOwnership();
 
-		verifyFavorites();
+		//Verify that orgunit parameters in favorites are usable (i.e. are relative)
+		verifyFavoriteOrgunits();
 
+		//Change the default UID to what is used currently the hardcoded values
 		setDefaultUid();
 
 		//Remove orgunit assignment from datasets
@@ -134,7 +138,7 @@
 			metaData.dataSets[i].organisationUnits = [];
 		}
 
-		//Check for (currently) unsupported favorites types, e.g. data element group sets etc
+		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc
 
 
 		saveFile();
@@ -200,8 +204,13 @@
 									categoryOptions().then(function(result) {
 										metaData.categoryOptions = result.categoryOptions;
 
-										console.log("Done exporting");
-										exportDashboardAggregatePostProcess();
+										d2.get('/api/system/id.json?limit=100').then(function(result) {
+											uids = result.codes;
+
+											console.log("Done exporting");
+											exportDashboardAggregatePostProcess();
+										});
+
 									});
 								});
 							});
@@ -213,23 +222,27 @@
 		});
 	}
 
-
 	function exportDashboardAggregatePostProcess() {
 
+		//Remove ownership references, and set publicaccess as outlines in configuration file
 		removeOwnership();
 
-		verifyFavorites();
+		//Verify that orgunit parameters in favorites are usable (i.e. are relative)
+		verifyFavoriteOrgunits();
 
+		//Change the default UID to what is used currently the hardcoded values
 		setDefaultUid();
 
-		//Convert data elements to indicators - //TODO: Data element operands are different!
-		dataElementToIndicator();
+		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc
 
-		//Empty indicator formulas
-		clearIndicatorFormulas();
+		//Convert data sets and data elements to indicators in favorites
+		favoriteDataDimensionItemsToIndicators();
 
 		//Modify favorites with unsupported disaggregations
 		flattenFavorites();
+
+		//Clear indicator formulas
+		clearIndicatorFormulas();
 
 		//Remove input-type elements
 		delete metaData.dataElements;
@@ -405,8 +418,12 @@
 		for (var k = 0; k < types.length; k++) {
 			for (var i = 0; i < metaData[types[k]].length; i++) {
 				for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
-					if (metaData[types[k]][i].dataDimensionItems[j].dataDimensionItemType.indexOf('DATA_ELEMENT') === 0) {
-						ids.push(metaData[types[k]][i].dataDimensionItems[j].dataElement.id);
+					var dimItem = metaData[types[k]][i].dataDimensionItems[j];
+					if (dimItem.dataDimensionItemType === 'DATA_ELEMENT') {
+						ids.push(dimItem.dataElement.id);
+					}
+					else if (dimItem.dataDimensionItemType === 'DATA_ELEMENT_OPERAND') {
+						ids.push(dimItem.dataElementOperand.dataElement.id);
 					}
 				}
 			}
@@ -531,14 +548,14 @@
 	function flattenFavorites() {
 		for (var i = 0; metaData.charts && i < metaData.charts.length; i++) {
 			var chart = metaData.charts[i];
-			var message = '[MODIFICATIONS:\n';
+			var message = '[MODIFICATIONS: \n';
 			for (var j = 0; j < chart.categoryDimensions.length; j++) {
 				var dec = chart.categoryDimensions[j].dataElementCategory.id;
 				message += 'Add ' + categoryName(dec) + ' as ';
-				message += chart.category === dec ? 'category' : 'series' + ' dimension\n';
+				message += chart.category === dec ? 'category' : 'series' + ' dimension. \n';
 			}
 			if (chart.categoryDimensions.length > 0) {
-				chart.description = message + 'END MODIFICATIONS]\n' + chart.description;
+				chart.description = message + ' END MODIFICATIONS]\n' + chart.description;
 				chart.categoryDimensions = [];
 			}
 
@@ -555,18 +572,18 @@
 
 				for (var k = 0; k < reportTable.columnDimensions.lenght; k++) {
 					if (reportTable.columnDimensions[k] = dec) {
-						message += 'Add ' + categoryName(dec) + ' as column dimension\n'
+						message += 'Add ' + categoryName(dec) + ' as column dimension. \n'
 					}
 				}
 
 				for (var k = 0; k < reportTable.rowDimensions.lenght; k++) {
 					if (reportTable.columnDimensions[k] = dec) {
-						message += 'Add ' + categoryName(dec) + ' as row dimension\n'
+						message += 'Add ' + categoryName(dec) + ' as row dimension. \n'
 					}
 				}
 			}
 			if (reportTable.categoryDimensions.length > 0) {
-				reportTable.description = message + 'END MODIFICATIONS]\n' + reportTable.description;
+				reportTable.description = message + ' END MODIFICATIONS] \n' + reportTable.description;
 				reportTable.categoryDimensions = [];
 			}
 
@@ -586,31 +603,123 @@
 	}
 
 
-	//Save all data elements as indicators
-	function dataElementToIndicator() {
+	//Transform all data elements, data element operands and reporting rates in favorites to indicators, and update favorites accordingly
+	function favoriteDataDimensionItemsToIndicators() {
+		if (!metaData.indicators) metaData.indicators = [];
 
-		for (var i = 0; metaData.dataElements && i < metaData.dataElements.length; i++) {
-			var de = metaData.dataElements[i];
+		//Data elements from favorites
+		var types = ['charts', 'mapViews', 'reportTables'];
+		for (var k = 0; k < types.length; k++) {
+			for (var i = 0; i < metaData[types[k]].length; i++) {
+				for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
+					var indicator, dimItem = metaData[types[k]][i].dataDimensionItems[j];
+					if (dimItem.dataDimensionItemType === 'DATA_ELEMENT') {
+						indicator = dataElementToIndicator(dimItem.dataElement.id);
+					}
+					else if (dimItem.dataDimensionItemType === 'DATA_ELEMENT_OPERAND') {
+						indicator = dataElementOperandToIndicator(dimItem.dataElementOperand.dataElement.id, dimItem.dataElementOperand.categoryOptionCombo.id);
+					}
+					else if (dimItem.dataDimensionItemType === 'REPORTING_RATE') {
+						indicator = dataSetToIndicator(dimItem.reportingRate);
+					}
+					else if (dimItem.dataDimensionItemType != 'INDICATOR') {
+						console.log("ERROR: Unsupported data dimension item type in " + types[k] + " with ID " + metaData[types[k]][i].id);
+					}
 
-			var indicator = {
-				'id': de.id,
-				'code': de.code ? de.code : null,
-				'name': currentExport.placeHolder + ' ' + de.name,
-				'shortName': de.shortName,
-				'description': de.description ? de.description : null,
-				'indicatorType': {"id": numberIndicatorType()},
-				'numerator': '-1',
-				'denominator': '1',
-				'numeratorDescription': de.name,
-				'denominatorDescription': '1',
-				'annualized': false,
-				'publicAccess': currentExport.publicAccess,
-				'translations': de.translations ? de.translations : null
+					if (indicator) {
+						metaData.indicators.push(indicator);
+						metaData[types[k]][i].dataDimensionItems[j] = {
+							"dataDimensionItemType": "INDICATOR",
+							"indicator": {
+								"id": indicator.id
+							}
+						};
+					}
+				}
 			}
-
-			if (!metaData.indicators) metaData.indicators = [];
-			metaData.indicators.push(indicator);
 		}
+	}
+
+	//Transform data element to indicator
+	function dataElementToIndicator(dataElementId) {
+		var de;
+		for (var i = 0; i < metaData.dataElements.length; i++) {
+			if (metaData.dataElements[i].id === dataElementId) {
+				de = metaData.dataElements[i];
+			}
+		}
+
+		var indicator = {
+			'id': de.id,
+			'code': de.code ? de.code : null,
+			'name': currentExport.placeHolder + ' ' + de.name,
+			'shortName': de.shortName,
+			'description': de.description ? de.description : null,
+			'indicatorType': {"id": numberIndicatorType()},
+			'numerator': '-1',
+			'denominator': '1',
+			'numeratorDescription': de.name,
+			'denominatorDescription': '1',
+			'annualized': false,
+			'publicAccess': currentExport.publicAccess
+		}
+
+		return indicator;
+	}
+
+	//Transform data element operand to indicator
+	function dataElementOperandToIndicator(dataElementId, categoryOptionComboId) {
+		var de, coc;
+		for (var i = 0; i < metaData.dataElements.length; i++) {
+			if (metaData.dataElements[i].id === dataElementId) {
+				de = metaData.dataElements[i];
+			}
+		}
+		for (var i = 0; i < metaData.categoryOptionCombos.length; i++) {
+			if (metaData.categoryOptionCombos[i].id === dataElementId) {
+				coc = metaData.categoryOptionCombos[i];
+			}
+		}
+
+		//TODO: combine names from the two in translation
+
+		var indicator = {
+			'id': uids.pop(),
+			'code': de.code ? de.code : null,
+			'name': currentExport.placeHolder + ' ' + de.name + ' ' + coc.name,
+			'shortName': de.shortName,
+			'description': de.description ? de.description + ' \n' + coc.name : null,
+			'indicatorType': {"id": numberIndicatorType()},
+			'numerator': '-1',
+			'denominator': '1',
+			'numeratorDescription': de.name,
+			'denominatorDescription': '1',
+			'annualized': false,
+			'publicAccess': currentExport.publicAccess
+		}
+
+		return indicator;
+	}
+
+	//Transform data set to indicator
+	function dataSetToIndicator(reportingRate) {
+		//TODO: Need to fetch dataset to get translation
+		var indicator = {
+			'id': reportingRate.id,
+			'code': reportingRate.code ? reportingRate.code : null,
+			'name': currentExport.placeHolder + ' COMPLETENESS ' + reportingRate.name,
+			'shortName': de.shortName,
+			'description': "[MODIFICATION: REPLACE WITH DATASET COMPLETENESS IN FAVORITES]",
+			'indicatorType': {"id": numberIndicatorType()},
+			'numerator': '-1',
+			'denominator': '1',
+			'numeratorDescription': "COMPLETENESS " + reportingRate.name,
+			'denominatorDescription': '1',
+			'annualized': false,
+			'publicAccess': currentExport.publicAccess
+		}
+
+		return indicator;
 	}
 
 
@@ -661,7 +770,7 @@
 
 
 	//Check for hardcoded orgunits in favorites (mapViews, reportTables, charts), print warning
-	function verifyFavorites() {
+	function verifyFavoriteOrgunits() {
 
 		//Consider replacing by "user orgunit children or similar"
 		for (var i = 0; metaData.charts && i < metaData.charts.length; i++) {
