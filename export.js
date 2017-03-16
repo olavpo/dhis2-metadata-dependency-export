@@ -11,6 +11,7 @@
 	var exportQueue = [];
 	var currentExport;
 	var uids;
+	var operandDictionary = {};
 	run();
 
 	/**
@@ -32,6 +33,7 @@
 		}
 
 		metaData = {};
+		operandDictionary = {};
 
 		if (currentExport.type === 'completeAggregate') {
 			exportCompleteAggregate();
@@ -109,8 +111,21 @@
 										categoryOptions().then(function(result) {
 											metaData.categoryOptions = result.categoryOptions;
 
-											console.log("Done exporting");
-											exportCompleteAggregatePostProcess();
+											promises = [];
+											promises.push(object('dataElementGroups', currentExport.dataElementGroupIds));
+											promises.push(object('indicatorGroups', currentExport.indicatorGroupIds));
+
+											Q.all(promises).then(function(results) {
+												metaData.dataElementGroups = results[0].dataElementGroups;
+												metaData.indicatorGroups = results[1].indicatorGroups;
+
+												d2.get('/api/system/id.json?limit=100').then(function(result) {
+													uids = result.codes;
+
+													console.log("Done exporting");
+													exportCompleteAggregatePostProcess();
+												});
+											});
 										});
 									});
 								});
@@ -138,8 +153,10 @@
 			metaData.dataSets[i].organisationUnits = [];
 		}
 
-		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc
+		//Remove invalid group references
+		updateGroupReferences();
 
+		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc
 
 		saveFile();
 
@@ -204,11 +221,18 @@
 									categoryOptions().then(function(result) {
 										metaData.categoryOptions = result.categoryOptions;
 
-										d2.get('/api/system/id.json?limit=100').then(function(result) {
-											uids = result.codes;
+										promises = [];
+										promises.push(object('indicatorGroups', currentExport.indicatorGroupIds));
 
-											console.log("Done exporting");
-											exportDashboardAggregatePostProcess();
+										Q.all(promises).then(function(results) {
+											metaData.indicatorGroups = results[0].indicatorGroups;
+
+											d2.get('/api/system/id.json?limit=100').then(function (result) {
+												uids = result.codes;
+
+												console.log("Done exporting");
+												exportDashboardAggregatePostProcess();
+											});
 										});
 
 									});
@@ -244,8 +268,12 @@
 		//Clear indicator formulas
 		clearIndicatorFormulas();
 
+		//Fix indicator groups - remove invalid references and add default group
+		updateGroupReferences();
+
 		//Remove input-type elements
 		delete metaData.dataElements;
+		delete metaData.dataElementGroups;
 		delete metaData.categories;
 		delete metaData.categoryOptionCombos;
 		delete metaData.categoryOptions;
@@ -257,6 +285,7 @@
 	}
 
 
+	/** FETCHING METADATA **/
 	//Generic "object by ID" function
 	function object(object, ids) {
 		ids = arrayRemoveDuplicates(ids);
@@ -532,8 +561,8 @@
 
 
 
-	/** MODIFICATION AND HELPER FUNCTIONS **/
 
+	/** MODIFICATION AND HELPER FUNCTIONS **/
 	//Get name of category with the given ID
 	function categoryName(id) {
 		for (var i = 0; metaData.categories && metaData.categories && i < metaData.categories.length; i++) {
@@ -542,7 +571,6 @@
 
 		return 'ERROR';
 	}
-
 
 	//Modify favorites, removing/warning about unsupported data disaggregations
 	function flattenFavorites() {
@@ -593,7 +621,6 @@
 		}
 	}
 
-
 	//Empty indicator formulas
 	function clearIndicatorFormulas() {
 		for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
@@ -601,7 +628,6 @@
 			metaData.indicators[i].denominator = '1';
 		}
 	}
-
 
 	//Transform all data elements, data element operands and reporting rates in favorites to indicators, and update favorites accordingly
 	function favoriteDataDimensionItemsToIndicators() {
@@ -613,6 +639,7 @@
 			for (var i = 0; i < metaData[types[k]].length; i++) {
 				for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
 					var indicator, dimItem = metaData[types[k]][i].dataDimensionItems[j];
+					console.log(dimItem.dataDimensionItemType);
 					if (dimItem.dataDimensionItemType === 'DATA_ELEMENT') {
 						indicator = dataElementToIndicator(dimItem.dataElement.id);
 					}
@@ -627,7 +654,15 @@
 					}
 
 					if (indicator) {
-						metaData.indicators.push(indicator);
+
+						//Check if it already exists
+						var found = false;
+						for (var l = 0; !false && l < metaData.indicators.length; l++) {
+							if (indicator.id === metaData.indicators[l].id) found = true;
+						}
+						if (!found)	metaData.indicators.push(indicator);
+
+						
 						metaData[types[k]][i].dataDimensionItems[j] = {
 							"dataDimensionItemType": "INDICATOR",
 							"indicator": {
@@ -669,6 +704,16 @@
 
 	//Transform data element operand to indicator
 	function dataElementOperandToIndicator(dataElementId, categoryOptionComboId) {
+
+		//Check if the same operand has already been converted - if so, return the existing one
+		var existingIndicatorId = operandDictionary[dataElementId + categoryOptionComboId];
+		if (existingIndicatorId) {
+			for (var i = 0; i < metaData.indicators.length; i++) {
+				if (metaData.indicators[i].id === existingIndicatorId) return metaData.indicators[i];
+			}
+		}
+
+
 		var de, coc;
 		for (var i = 0; i < metaData.dataElements.length; i++) {
 			if (metaData.dataElements[i].id === dataElementId) {
@@ -676,7 +721,7 @@
 			}
 		}
 		for (var i = 0; i < metaData.categoryOptionCombos.length; i++) {
-			if (metaData.categoryOptionCombos[i].id === dataElementId) {
+			if (metaData.categoryOptionCombos[i].id === categoryOptionComboId) {
 				coc = metaData.categoryOptionCombos[i];
 			}
 		}
@@ -697,6 +742,9 @@
 			'annualized': false,
 			'publicAccess': currentExport.publicAccess
 		}
+
+		//Save mapping of operand IDs to indicator
+		operandDictionary[dataElementId + categoryOptionComboId] = indicator.id;
 
 		return indicator;
 	}
@@ -721,7 +769,6 @@
 
 		return indicator;
 	}
-
 
 	//Use "hardcoded" UIDs for default combo, category etc
 	function setDefaultUid() {
@@ -754,7 +801,6 @@
 		}
 	}
 
-
 	//Remove "user", "userGroupAccesses" for applicable objects, set publicaccess according to configuration.json
 	function removeOwnership() {
 		for (var objectType in metaData) {
@@ -767,7 +813,6 @@
 			}
 		}
 	}
-
 
 	//Check for hardcoded orgunits in favorites (mapViews, reportTables, charts), print warning
 	function verifyFavoriteOrgunits() {
@@ -803,7 +848,6 @@
 		}
 	}
 
-
 	//Returns number indicator type, adds new if it does not exist
 	function numberIndicatorType() {
 
@@ -830,6 +874,93 @@
 		return template.id;
 	}
 
+	//Remove data element and indicator membership where members are not in export
+	function updateGroupReferences() {
+
+
+		//data element group membership
+		var grouped = {};
+		for (var i = 0; metaData.dataElementGroups && i < metaData.dataElementGroups.length; i++) {
+			var group = metaData.dataElementGroups[i];
+			var validMembers = [];
+			
+			for (var j = 0; j < group.dataElements.length; j++) {
+				var item = group.dataElements[j];
+
+				var found = false;
+				for (var k = 0; !found && metaData.dataElements && k < metaData.dataElements.length; k++) {
+					if (item.id === metaData.dataElements[k].id) {
+						found = true;
+					}
+				}
+
+				if (found) {
+					validMembers.push(item);
+					grouped[item.id] = true;
+				}
+			}
+			metaData.dataElementGroups[i].dataElements = validMembers;
+		}
+		var unGrouped = [];
+		for (var i = 0; metaData.dataElements && i < metaData.dataElements.length; i++) {
+			if (!grouped.hasOwnProperty(metaData.dataElements[i].id)) {
+				unGrouped.push({"id": metaData.dataElements[i].id});
+			}
+		}
+		if (unGrouped.length > 0) {
+			if (!metaData.dataElementGroups) metaData.dataElementGroups = [];
+			metaData.dataElementGroups.push({
+				"name": "[Other data elements]",
+				"id": uids.pop(),
+				"dataElements": unGrouped
+			});
+		}
+
+		//indicator group membership
+		grouped = {};
+		for (var i = 0; metaData.indicatorGroups && i < metaData.indicatorGroups.length; i++) {
+			var group = metaData.indicatorGroups[i];
+			var validMembers = [];
+
+			for (var j = 0; j < group.indicators.length; j++) {
+				var item = group.indicators[j];
+
+
+
+				var found = false;
+				for (var k = 0; !found && metaData.indicators && k < metaData.indicators.length; k++) {
+					if (item.id === metaData.indicators[k].id) {
+						found = true;
+					}
+				}
+
+				if (found) {
+					validMembers.push(item);
+					grouped[item.id] = true;
+				}
+			}
+			metaData.indicatorGroups[i].indicators = validMembers;
+		}
+
+		var unGrouped = [];
+		for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
+			if (!grouped.hasOwnProperty(metaData.indicators[i].id)) {
+				unGrouped.push({"id": metaData.indicators[i].id});
+			}
+		}
+		
+		if (unGrouped.length > 0) {
+			if (!metaData.indicatorGroups) metaData.indicatorGroups = [];
+			metaData.indicatorGroups.push({
+				"name": "[Other indicators]",
+				"id": uids.pop(),
+				"indicators": unGrouped
+			});
+		}
+
+		return;
+	}
+
 
 	/** UTILS **/
 	function saveFile() {
@@ -843,7 +974,6 @@
 		});
 	}
 
-
 	function plainIdsFromObjects(idObjects) {
 		var ids = [];
 		for (var i = 0; i < idObjects.length; i++) {
@@ -851,7 +981,6 @@
 		}
 		return ids;
 	}
-
 
 	function idsFromIndicatorFormula(numeratorFormula, denominatorFormula, dataElementOnly) {
 
@@ -866,7 +995,6 @@
 		return arrayRemoveDuplicates(matches);
 	}
 
-
 	function arrayRemoveDuplicates(array, property) {
 		var seen = {};
 		return array.filter(function(item) {
@@ -878,7 +1006,6 @@
 			}
 		});
 	}
-
 
 	function arrayMerge(a, b) {
 		if (a && !isArray(a)) a = [a];
@@ -892,7 +1019,6 @@
 		}
 		return a;
 	}
-
 
 	function isArray(array) {
 		var isArray = Object.prototype.toString.call( array ) === '[object Array]';
