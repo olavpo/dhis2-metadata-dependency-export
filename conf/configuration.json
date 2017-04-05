@@ -28,6 +28,7 @@
     "dataSetIds": ["OyutuMOPgkt", "lYNYevNTO7B", "Yhk4Ee59d9y", "VQTEps77HLq", "Fn5XKDV6WRY", "rSfhnkAdm5y", "kiODgwGG9I2"],
     "dashboardIds": ["BwYHhBSvLNL", "MaJqTSteIqg", "VtRtBqorLfR", "dp6xqlPGxbA", "xJXvUOEhnE9", "L2UmLVcb6Dm"],
       "dataElementGroupIds": ["aGtzAAao0Mt", "m54T3OptLaU", "fAS1m0weZsf", "V4Ctf7L4wq6"],
+      "validationRuleGroupIds": ["iRCrvkyr4uw", "sgf2zdOiwny", "dRcxM3sLcNn", "TumuGy1lmGY", "vtIZawvyEM7", "xnxqh8hX6Ag"],
       "indicatorGroupIds": ["V4SoC7TzFMi", "OMyYjoU07pC", "QCrsjqhAcWA"],
     "otherObjects": [
       {

@@ -119,11 +119,22 @@
 												metaData.dataElementGroups = results[0].dataElementGroups;
 												metaData.indicatorGroups = results[1].indicatorGroups;
 
-												d2.get('/api/system/id.json?limit=100').then(function(result) {
-													uids = result.codes;
+												promises = [];
+												promises.push(object('validationRuleGroups', currentExport.validationRuleGroupIds));
+												promises.push(d2.get('/api/validationRules.json?filter=validationRuleGroups.id:in:[' + currentExport.validationRuleGroupIds.join(',') + ']&fields=:owner&paging=false'));
 
-													console.log("Done exporting");
-													exportCompleteAggregatePostProcess();
+												Q.all(promises).then(function(results) {
+
+													metaData.validationRuleGroups = results[0].validationRuleGroups;
+													metaData.validationRules = results[1].validationRules;
+
+													d2.get('/api/system/id.json?limit=100').then(function(result) {
+														uids = result.codes;
+
+														console.log("Done exporting");
+														exportCompleteAggregatePostProcess();
+													});
+
 												});
 											});
 										});
@@ -156,9 +167,9 @@
 		//Remove invalid group references
 		updateGroupReferences();
 
-		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc
+		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc?
 
-		saveFile();
+		saveFileJson();
 
 		nextExport();
 	}
@@ -279,7 +290,7 @@
 		delete metaData.categoryOptions;
 		delete metaData.categoryCombos;
 
-		saveFile();
+		saveFileJson();
 
 		nextExport();
 	}
@@ -292,7 +303,7 @@
 		return d2.get('/api/' + object + '.json?filter=id:in:[' + ids.join(',') + ']&fields=:owner&paging=false');
 	}
 
-	//Specific objects - fetched based on existing object in metaData variable
+	//Specific objects - fetched based on existing object in metaData variable (i.e. needs to be done in a specific order)
 	function dashboardItems() {
 		var deferred = Q.defer();
 
@@ -560,8 +571,6 @@
 	}
 
 
-
-
 	/** MODIFICATION AND HELPER FUNCTIONS **/
 	//Get name of category with the given ID
 	function categoryName(id) {
@@ -639,7 +648,7 @@
 			for (var i = 0; i < metaData[types[k]].length; i++) {
 				for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
 					var indicator, dimItem = metaData[types[k]][i].dataDimensionItems[j];
-					console.log(dimItem.dataDimensionItemType);
+
 					if (dimItem.dataDimensionItemType === 'DATA_ELEMENT') {
 						indicator = dataElementToIndicator(dimItem.dataElement.id);
 					}
@@ -662,7 +671,7 @@
 						}
 						if (!found)	metaData.indicators.push(indicator);
 
-						
+
 						metaData[types[k]][i].dataDimensionItems[j] = {
 							"dataDimensionItemType": "INDICATOR",
 							"indicator": {
@@ -900,6 +909,7 @@
 				}
 			}
 			metaData.dataElementGroups[i].dataElements = validMembers;
+			delete metaData.dataElementGroups[i].dataElementGroupSet;
 		}
 		var unGrouped = [];
 		for (var i = 0; metaData.dataElements && i < metaData.dataElements.length; i++) {
@@ -940,6 +950,7 @@
 				}
 			}
 			metaData.indicatorGroups[i].indicators = validMembers;
+			delete metaData.dataElementGroups[i].indicatorGroupSet;
 		}
 
 		var unGrouped = [];
@@ -963,7 +974,7 @@
 
 
 	/** UTILS **/
-	function saveFile() {
+	function saveFileJson() {
 		//Save file
 		jsonfile.writeFileSync(currentExport.output, metaData, function (err) {
 			if (!err) console.log("Saved metadata to " + currentExport.output);
