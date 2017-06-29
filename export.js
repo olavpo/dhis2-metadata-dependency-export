@@ -171,6 +171,9 @@
 
 		saveFileJson();
 
+		sortMetaData();
+
+
 		nextExport();
 	}
 
@@ -291,6 +294,7 @@
 		delete metaData.categoryCombos;
 
 		saveFileJson();
+		sortMetaData();
 
 		nextExport();
 	}
@@ -983,6 +987,20 @@
 				console.error(err);
 			}
 		});
+	function sortMetaData() {
+		var objects = arrayFromKeys(metaData);
+		var items;
+		for (var i = 0; i < objects.length; i++) {
+			if (metaData[objects[i]].length === 0) {
+				continue;
+			}
+			items = metaData[objects[i]];
+
+			if (items[0].hasOwnProperty('name')) {
+				metaData[objects[i]] = arraySortByProperty(items, 'name', false, false);
+			}
+		}
+	}
 	}
 
 	function plainIdsFromObjects(idObjects) {
@@ -1035,6 +1053,33 @@
 		var isArray = Object.prototype.toString.call( array ) === '[object Array]';
 
 		return isArray;
+	}
+
+	function arraySortByProperty(array, property, numeric, reverse) {
+
+		return array.sort(function(a, b) {
+			var res;
+			if (numeric) {
+				res = b[property] - a[property] ;
+			}
+			else {
+				res = a[property] < b[property] ? -1 : 1
+			}
+			if (reverse) return -res;
+			else return res;
+		});
+
+	}
+
+	function arrayFromKeys(obj) {
+		var array = [];
+		for (var key in obj) {
+			if (obj.hasOwnProperty(key)) {
+				array.push(key);
+			}
+		}
+		return array;
+
 	}
 
 
