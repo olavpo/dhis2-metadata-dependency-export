@@ -11,13 +11,12 @@
 	module.exports.get = get;
 	module.exports.post = post;
 
-	var debug = true;
+	var debug = false;
 
 
 	function post(url, payload) {
 
 		var deferred = Q.defer();
-		var debug = false;
 
 		url = conf.dhis.url + url;
 		if (debug) console.log("POST request: " + url);

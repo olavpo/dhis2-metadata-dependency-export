@@ -3,6 +3,7 @@
 
 	var Q = require('q');
 	var jsonfile = require('jsonfile');
+	var fs = require('fs');
 
 	var conf = require('./conf/configuration.json');
 	var d2 = require('./bin/d2.js');
@@ -12,6 +13,10 @@
 	var currentExport;
 	var uids;
 	var operandDictionary = {};
+	var favoriteModifications = {};
+
+	var exporting = false;
+
 	run();
 
 	/**
@@ -26,14 +31,21 @@
 	}
 
 	function nextExport() {
+		if (exporting) return;
+
 		currentExport = exportQueue.pop();
 		if (!currentExport) {
 			console.log("All exports done!");
 			return;
 		}
+		else {
+			exporting = true;
+			console.log("Exporting " + currentExport.name + ". " + exportQueue.length + " remaining");
+		}
 
 		metaData = {};
 		operandDictionary = {};
+		favoriteModifications = {}
 
 		if (currentExport.type === 'completeAggregate') {
 			exportCompleteAggregate();
@@ -78,9 +90,14 @@
 					mapViews().then(function(result) {
 						metaData.mapViews = result;
 
-						//Get indicators, based on favorites and datasets
-						indicators().then(function(result) {
-							metaData.indicators = result.indicators;
+						//Get indicators and categoryOptionGroupSets, based on favorites and datasets
+						promises = [];
+						promises.push(indicators());
+						promises.push(categoryOptionGroupSets());
+
+						Q.all(promises).then(function(result) {
+							metaData.indicators = result[0].indicators;
+							metaData.categoryOptionGroupSets = result[1].categoryOptionGroupSets;
 
 							//Get data elements, based on favorites, datasets and indicators
 							dataElements(false).then(function(result) {
@@ -91,10 +108,14 @@
 								promises.push(legendSets());
 								promises.push(categoryCombos());
 								promises.push(indicatorTypes());
+								promises.push(categoryOptionGroups());
+								promises.push(predictors());
 								Q.all(promises).then(function(results) {
 									metaData.legendSets = results[0].legendSets;
 									metaData.categoryCombos = results[1].categoryCombos;
 									metaData.indicatorTypes = results[2].indicatorTypes;
+									metaData.categoryOptionGroups = results[3].categoryOptionGroups;
+									metaData.predictors = results[4].predictors;
 
 									//Get legends, categories, categoryOptionCombos
 									promises = [];
@@ -131,7 +152,7 @@
 													d2.get('/api/system/id.json?limit=100').then(function(result) {
 														uids = result.codes;
 
-														console.log("Done exporting");
+														console.log("Done exporting " + currentExport.name);
 														exportCompleteAggregatePostProcess();
 													});
 
@@ -169,12 +190,22 @@
 
 		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc?
 
-		saveFileJson();
+		//TODO: Set default catcombo to null when targeting 2.26 and higher
+
+		//TODO: Fix for duplicated categoryOptionGroups
+		dedupeCategoryOptionGroups();
 
 		sortMetaData();
 
 
-		nextExport();
+		var promises = [];
+		promises.push(makeReferenceList());
+		promises.push(saveFileJson());
+		Q.all(promises).then(function(results) {
+			exporting = false;
+			nextExport();
+		});
+
 	}
 
 
@@ -202,50 +233,59 @@
 					mapViews().then(function(result) {
 						metaData.mapViews = result;
 
-						//Get indicators, based on favorites and datasets
-						indicators().then(function(result) {
-							metaData.indicators = result.indicators;
+						//Get indicators and categoryOptionGroupSets, based on favorites and datasets
+						promises = [];
+						promises.push(indicators());
+						promises.push(categoryOptionGroupSets());
+
+						Q.all(promises).then(function(result) {
+							metaData.indicators = result[0].indicators;
+							metaData.categoryOptionGroupSets = result[1].categoryOptionGroupSets;
 
 							//Get data elements, based on favorites, datasets and indicators
 							dataElements(true).then(function(result) {
 								metaData.dataElements = result.dataElements;
 
-							//Get LegendSet, categoryCombo, indicatorTypes
-							promises = [];
-							promises.push(legendSets());
-							promises.push(categoryCombos()); //Do we want this?
-							promises.push(indicatorTypes());
-							Q.all(promises).then(function(results) {
-								metaData.legendSets = results[0].legendSets;
-								metaData.categoryCombos = results[1].categoryCombos;
-								metaData.indicatorTypes = results[2].indicatorTypes;
-
-								//Get legends, categories, categoryOptionCombos
+								//Get LegendSet, categoryCombo, indicatorTypes
 								promises = [];
-								promises.push(legends());
-								promises.push(categories());
-								promises.push(categoryOptionCombos());
-
+								promises.push(legendSets());
+								promises.push(categoryCombos()); //Do we want/need this?
+								promises.push(indicatorTypes());
+								promises.push(categoryOptionGroups());
+								promises.push(predictors());
 								Q.all(promises).then(function(results) {
-									metaData.legends = results[0].legends;
-									metaData.categories = results[1].categories;
-									metaData.categoryOptionCombos = results[2].categoryOptionCombos;
+									metaData.legendSets = results[0].legendSets;
+									metaData.categoryCombos = results[1].categoryCombos;
+									metaData.indicatorTypes = results[2].indicatorTypes;
+									metaData.categoryOptionGroups = results[3].categoryOptionGroups;
+									metaData.predictors = results[4].predictors;
 
-									//Get categoryoptions
-									categoryOptions().then(function(result) {
-										metaData.categoryOptions = result.categoryOptions;
+									//Get legends, categories, categoryOptionCombos
+									promises = [];
+									promises.push(legends());
+									promises.push(categories());
+									promises.push(categoryOptionCombos());
 
-										promises = [];
-										promises.push(object('indicatorGroups', currentExport.indicatorGroupIds));
+									Q.all(promises).then(function(results) {
+										metaData.legends = results[0].legends;
+										metaData.categories = results[1].categories;
+										metaData.categoryOptionCombos = results[2].categoryOptionCombos;
 
-										Q.all(promises).then(function(results) {
-											metaData.indicatorGroups = results[0].indicatorGroups;
+										//Get categoryoptions
+										categoryOptions().then(function(result) {
+											metaData.categoryOptions = result.categoryOptions;
 
-											d2.get('/api/system/id.json?limit=100').then(function (result) {
-												uids = result.codes;
+											promises = [];
+											promises.push(object('indicatorGroups', currentExport.indicatorGroupIds));
 
-												console.log("Done exporting");
-												exportDashboardAggregatePostProcess();
+											Q.all(promises).then(function(results) {
+												metaData.indicatorGroups = results[0].indicatorGroups;
+
+												d2.get('/api/system/id.json?limit=100').then(function (result) {
+													uids = result.codes;
+
+													console.log("Done exporting");
+													exportDashboardAggregatePostProcess();
 											});
 										});
 
@@ -273,17 +313,35 @@
 
 		//TODO: Check for (currently) unsupported favorites types, e.g. data element group sets etc
 
+
 		//Convert data sets and data elements to indicators in favorites
 		favoriteDataDimensionItemsToIndicators();
 
 		//Modify favorites with unsupported disaggregations
 		flattenFavorites();
 
-		//Clear indicator formulas
+		//Clear indicator formulas (data elements are not included)
 		clearIndicatorFormulas();
+
+		//TODO: workaround for duplicated categoryoptiongroups
+		dedupeCategoryOptionGroups();
+
+		//Clear categoryOptionGroups (cateogory options are not included)
+		clearCategoryOptionGroups();
+
+		//Clear predictor formulas
+		clearPredictors();
+
+		//Prefix indicators
+		prefixIndicators();
 
 		//Fix indicator groups - remove invalid references and add default group
 		updateGroupReferences();
+
+		//Add modification description to favorites
+		favoriteModificationInstructions();
+
+		console.log("Removing input-type metadata");
 
 		//Remove input-type elements
 		delete metaData.dataElements;
@@ -293,10 +351,16 @@
 		delete metaData.categoryOptions;
 		delete metaData.categoryCombos;
 
-		saveFileJson();
 		sortMetaData();
 
-		nextExport();
+		var promises = [];
+		promises.push(makeReferenceList());
+		promises.push(makeIndicatorChecklist());
+		promises.push(saveFileJson());
+		Q.all(promises).then(function(results) {
+			exporting = false;
+			nextExport();
+		});
 	}
 
 
@@ -447,6 +511,73 @@
 		return object('indicators', ids);
 	}
 
+	function categoryOptionGroupSets() {
+
+		var ids = [];
+
+		var item;
+		for (var i = 0; i < metaData['charts'].length; i++) {
+			item = metaData['charts'][i];
+
+
+			if (item.series.length > 2) ids.push(item.series);
+			if (item.category.length > 2) ids.push(item.category);
+
+			for (var j = 0; j < item.filterDimensions.length; j++) {
+				if (item.filterDimensions[j].length > 2) ids.push(item.filterDimensions[j]);
+			}
+		}
+		for (var i = 0; i < metaData['reportTables'].length; i++) {
+			item = metaData['reportTables'][i];
+
+
+			for (var j = 0; j < item.columnDimensions.length; j++) {
+				if (item.columnDimensions[j].length > 2) ids.push(item.columnDimensions[j]);
+			}
+			for (var j = 0; j < item.rowDimensions.length; j++) {
+				if (item.rowDimensions[j].length > 2) ids.push(item.rowDimensions[j]);
+			}
+			for (var j = 0; j < item.filterDimensions.length; j++) {
+				if (item.filterDimensions[j].length > 2) ids.push(item.filterDimensions[j]);
+			}
+		}
+
+		return object('categoryOptionGroupSets', ids);
+
+	}
+
+	function categoryOptionGroups() {
+
+		var ids = [];
+
+		var item;
+		for (var i = 0; i < metaData['categoryOptionGroupSets'].length; i++) {
+			var item = metaData['categoryOptionGroupSets'][i];
+
+			for (var j = 0; j < item.categoryOptionGroups.length; j++) {
+				ids.push(item.categoryOptionGroups[j].id);
+			}
+		}
+
+		return object('categoryOptionGroups', ids);
+
+	}
+
+	function predictors() {
+		var deferred = Q.defer();
+
+		var dataElementIds = [];
+		for (var i = 0; i < metaData['dataElements'].length; i++) {
+			dataElementIds.push(metaData['dataElements'][i].id)
+		}
+
+		d2.get('/api/predictors.json?fields=:owner&paging=false&filter=output.id:in:[' + dataElementIds.join(',') + ']').then(function(items) {
+			deferred.resolve(items);
+		});
+
+		return deferred.promise;
+	}
+
 	function dataElements(explicitOnly) {
 		var ids = [];
 
@@ -587,58 +718,133 @@
 
 	//Modify favorites, removing/warning about unsupported data disaggregations
 	function flattenFavorites() {
+
+
 		for (var i = 0; metaData.charts && i < metaData.charts.length; i++) {
 			var chart = metaData.charts[i];
-			var message = '[MODIFICATIONS: \n';
+			var itemID = chart.id;
+			var message = '';
 			for (var j = 0; j < chart.categoryDimensions.length; j++) {
 				var dec = chart.categoryDimensions[j].dataElementCategory.id;
-				message += 'Add ' + categoryName(dec) + ' as ';
-				message += chart.category === dec ? 'category' : 'series' + ' dimension. \n';
+				message += '* Add ' + categoryName(dec) + ' as ';
+				message += (chart.category === dec ? 'category' : 'series') + ' dimension. \n';
+
+				//Need to temporarily add other dimensions (from filter) as category/series to make sure it is valid
+				var placeholderDim = chart.filterDimensions.pop();
+				if (chart.category === dec) chart.category = placeholderDim;
+				else chart.series = placeholderDim;
 			}
 			if (chart.categoryDimensions.length > 0) {
-				chart.description = message + ' END MODIFICATIONS]\n' + chart.description;
+
+				if (!favoriteModifications[itemID]) favoriteModifications[itemID] = { "category": true, message: ''};
+				favoriteModifications[itemID].category = true;
+				favoriteModifications[itemID].message += message;
+
 				chart.categoryDimensions = [];
 			}
 
-			if (chart.categoryOptionGroups.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses categoryOptionGroups");
+			if (chart.categoryOptionGroups.length > 0) console.log("INFO: chart " + chart.name + " (" + chart.id + ") uses categoryOptionGroups");
 			if (chart.dataElementGroups.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses dataElementGroups");
 		}
 
 
 		for (var i = 0; metaData.reportTables && i < metaData.reportTables.length; i++) {
 			var reportTable = metaData.reportTables[i];
-			var message = '[MODIFICATIONS:\n';
+			var itemID = reportTable.id;
+			var message = '';
 			for (var j = 0; j < reportTable.categoryDimensions.length; j++) {
 				var dec = reportTable.categoryDimensions[j].dataElementCategory.id;
 
 				for (var k = 0; k < reportTable.columnDimensions.lenght; k++) {
-					if (reportTable.columnDimensions[k] = dec) {
-						message += 'Add ' + categoryName(dec) + ' as column dimension. \n'
+					if (reportTable.columnDimensions[k] === dec) {
+						message += '* Add ' + categoryName(dec) + ' as column dimension. \n';
+
+						//remove dimension
+						reportTable.columnDimensions.splice(k, 1);
+
+						if (reportTable.columnDimensions.length === 0) {
+							reportTable.columnDimensions.push(reportTable.filterDimensions.pop());
+						}
+
+
 					}
 				}
 
 				for (var k = 0; k < reportTable.rowDimensions.lenght; k++) {
-					if (reportTable.columnDimensions[k] = dec) {
-						message += 'Add ' + categoryName(dec) + ' as row dimension. \n'
+					if (reportTable.rowDimensions[k] === dec) {
+						message += '* Add ' + categoryName(dec) + ' as row dimension. \n';
+
+						//remove dimension
+						reportTable.rowDimensions.splice(k, 1);
+
+						if (reportTable.rowDimensions.length === 0) {
+							reportTable.rowDimensions.push(reportTable.filterDimensions.pop());
+						}
 					}
 				}
 			}
 			if (reportTable.categoryDimensions.length > 0) {
-				reportTable.description = message + ' END MODIFICATIONS] \n' + reportTable.description;
+
+				if (!favoriteModifications[itemID]) favoriteModifications[itemID] = { "category": true, message: ''};
+				favoriteModifications[itemID].category = true;
+				favoriteModifications[itemID].message += message;
+
 				reportTable.categoryDimensions = [];
 			}
 
 
-			if (reportTable.categoryOptionGroups.length > 0) console.log("WARNING: reportTable " + reportTable.name + " (" + reportTable.id + ") uses categoryOptionGroups");
-			if (reportTable.dataElementGroups.length > 0) console.log("WARNING: reportTable " + reportTable.name + " (" + reportTable.id + ") uses dataElementGroups");
+			if (reportTable.categoryOptionGroups.length > 0) console.log("INFO: reportTable " + reportTable.name + " (" + reportTable.id + ") uses categoryOptionGroups");
+			if (reportTable.dataElementGroups.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses dataElementGroups");
 		}
 	}
 
-	//Empty indicator formulas
+	//Clear indicator formulas
 	function clearIndicatorFormulas() {
 		for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
 			metaData.indicators[i].numerator = '-1';
 			metaData.indicators[i].denominator = '1';
+		}
+	}
+
+	//Clear cateogoryOptionGroups
+	function clearCategoryOptionGroups() {
+		for (var i = 0; metaData.categoryOptionGroups && i < metaData.categoryOptionGroups.length; i++) {
+			metaData.categoryOptionGroups[i].categoryOptions = [];
+		}
+	}
+
+	//Clear predictor formulas
+	function clearPredictors() {
+		for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
+			metaData.predictors[i].generator.expression = '-1';
+			metaData.predictors[i].organisationUnitLevels = [];
+			metaData.predictors[i].output.id = null;
+			metaData.predictors[i].outputCombo = null;
+		}
+	}
+
+	//Deduplicate categoryOptionGroups
+	function dedupeCategoryOptionGroups() {
+
+		var deduped = [];
+		var seen = {};
+
+		var id;
+		for (var i = 0 ; metaData.categoryOptionGroups && i < metaData.categoryOptionGroups.length; i++) {
+			id = metaData.categoryOptionGroups[i].id + metaData.categoryOptionGroups[i].categoryOptionGroupSet.id;
+			if (!seen[id]) {
+				seen[id] = true;
+				deduped.push(metaData.categoryOptionGroups[i])
+			}
+		}
+
+		metaData.categoryOptionGroups = deduped;
+	}
+
+	//Add prefix to indicators
+	function prefixIndicators() {
+		for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
+			metaData.indicators[i].name = currentExport.placeHolder + ' ' + metaData.indicators[i].name;
 		}
 	}
 
@@ -651,7 +857,10 @@
 		for (var k = 0; k < types.length; k++) {
 			for (var i = 0; i < metaData[types[k]].length; i++) {
 				for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
-					var indicator, dimItem = metaData[types[k]][i].dataDimensionItems[j];
+					var indicator = null, dimItem = metaData[types[k]][i].dataDimensionItems[j];
+
+					var itemID = metaData[types[k]][i].id;
+
 
 					if (dimItem.dataDimensionItemType === 'DATA_ELEMENT') {
 						indicator = dataElementToIndicator(dimItem.dataElement.id);
@@ -661,6 +870,9 @@
 					}
 					else if (dimItem.dataDimensionItemType === 'REPORTING_RATE') {
 						indicator = dataSetToIndicator(dimItem.reportingRate);
+						if (!favoriteModifications[itemID]) favoriteModifications[itemID] = { "dataSet": true, message: ''};
+						favoriteModifications[itemID].dataSet = true;
+						favoriteModifications[itemID].message += '* Insert dataset completeness ' + indicator.name + '\n';
 					}
 					else if (dimItem.dataDimensionItemType != 'INDICATOR') {
 						console.log("ERROR: Unsupported data dimension item type in " + types[k] + " with ID " + metaData[types[k]][i].id);
@@ -700,7 +912,7 @@
 		var indicator = {
 			'id': de.id,
 			'code': de.code ? de.code : null,
-			'name': currentExport.placeHolder + ' ' + de.name,
+			'name': de.name,
 			'shortName': de.shortName,
 			'description': de.description ? de.description : null,
 			'indicatorType': {"id": numberIndicatorType()},
@@ -708,6 +920,7 @@
 			'denominator': '1',
 			'numeratorDescription': de.name,
 			'denominatorDescription': '1',
+			'lastUpdated': "",
 			'annualized': false,
 			'publicAccess': currentExport.publicAccess
 		}
@@ -744,7 +957,7 @@
 		var indicator = {
 			'id': uids.pop(),
 			'code': de.code ? de.code : null,
-			'name': currentExport.placeHolder + ' ' + de.name + ' ' + coc.name,
+			'name': de.name + ' ' + coc.name,
 			'shortName': de.shortName,
 			'description': de.description ? de.description + ' \n' + coc.name : null,
 			'indicatorType': {"id": numberIndicatorType()},
@@ -752,6 +965,7 @@
 			'denominator': '1',
 			'numeratorDescription': de.name,
 			'denominatorDescription': '1',
+			'lastUpdated': "",
 			'annualized': false,
 			'publicAccess': currentExport.publicAccess
 		}
@@ -768,17 +982,18 @@
 		var indicator = {
 			'id': reportingRate.id,
 			'code': reportingRate.code ? reportingRate.code : null,
-			'name': currentExport.placeHolder + ' COMPLETENESS ' + reportingRate.name,
-			'shortName': de.shortName,
+			'name': reportingRate.name,
+			'shortName': reportingRate.shortName,
 			'description': "[MODIFICATION: REPLACE WITH DATASET COMPLETENESS IN FAVORITES]",
 			'indicatorType': {"id": numberIndicatorType()},
 			'numerator': '-1',
 			'denominator': '1',
 			'numeratorDescription': "COMPLETENESS " + reportingRate.name,
 			'denominatorDescription': '1',
+			'lastUpdated': null, //TODO
 			'annualized': false,
 			'publicAccess': currentExport.publicAccess
-		}
+		};
 
 		return indicator;
 	}
@@ -921,12 +1136,14 @@
 				unGrouped.push({"id": metaData.dataElements[i].id});
 			}
 		}
-		if (unGrouped.length > 0) {
+		if (unGrouped.length > 0 && currentExport.type != 'dashboardAggregate') {
 			if (!metaData.dataElementGroups) metaData.dataElementGroups = [];
 			metaData.dataElementGroups.push({
-				"name": "[Other data elements]",
+				"name": "[Other data elements] " + currentExport.name,
 				"id": uids.pop(),
-				"dataElements": unGrouped
+				"publicAccess": currentExport.publicAccess,
+				"dataElements": unGrouped,
+				"lastUpdated": new Date().toISOString()
 			});
 		}
 
@@ -954,7 +1171,7 @@
 				}
 			}
 			metaData.indicatorGroups[i].indicators = validMembers;
-			delete metaData.dataElementGroups[i].indicatorGroupSet;
+			delete metaData.indicatorGroups[i].indicatorGroupSet;
 		}
 
 		var unGrouped = [];
@@ -967,26 +1184,680 @@
 		if (unGrouped.length > 0) {
 			if (!metaData.indicatorGroups) metaData.indicatorGroups = [];
 			metaData.indicatorGroups.push({
-				"name": "[Other indicators]",
+				"name": currentExport.type != 'dashboardAggregate' ? "[Other indicators] " + currentExport.name : currentExport.name,
 				"id": uids.pop(),
-				"indicators": unGrouped
+				"publicAccess": currentExport.publicAccess,
+				"indicators": unGrouped,
+				"lastUpdated": new Date().toISOString()
 			});
 		}
 
 		return;
 	}
 
+	//Add instructions to favorites on necessary modifications
+	function favoriteModificationInstructions() {
+
+		var types = ['charts', 'maps', 'reportTables'];
+		for (var k = 0; k < types.length; k++) {
+			for (var i = 0; i < metaData[types[k]].length; i++) {
+				var list = metaData[types[k]];
+				for (var i = 0; list && i < list.length; i++) {
+					var item = list[i];
+					if (favoriteModifications[item.id]) {
+						var description = '[MODIFY]: \n'+ favoriteModifications[item.id].message + ' [END]\n\n ' + (item.description ? item.description : '');
+						metaData[types[k]][i].description = description;
+					}
+				}
+			}
+		}
+	}
+
 
 	/** UTILS **/
-	function saveFileJson() {
-		//Save file
-		jsonfile.writeFileSync(currentExport.output, metaData, function (err) {
-			if (!err) console.log("Saved metadata to " + currentExport.output);
-			else {
-				console.log("Error saving metadata file:");
-				console.error(err);
+	//Read metadata and make a Table of Content in markdown format
+	function makeReferenceList() {
+		var deferred = Q.defer();
+
+		var content = '# Metadata reference\n';
+
+		//dataset: sections, custom form bool, data elements, uid
+		if (metaData.dataSets && metaData.dataSets.length > 0) {
+			var ds, sec, de;
+			content += '\n## Data sets\n'
+			for (var i = 0; i < metaData.dataSets.length; i++) {
+				ds = metaData.dataSets[i];
+
+				content += '### ' + ds.name + ' \n';
+				content += 'Property | Value \n --- | --- \n';
+				content += 'Name: | ' + ds.name + '\n';
+				content += 'Custom form: | ' + (ds.dataEntryForm ? ds.dataEntryForm.id : 'No') + '\n';
+				content += 'Last updated: | ' + ds.lastUpdated.substr(0,10) + '\n';
+				content += 'UID: | ' + ds.id+ '\n';
+
+				var secHeader = false;
+				for (var j = 0; metaData.sections && j < metaData.sections.length; j++) {
+					sec = metaData.sections[j];
+					if (sec.dataSet.id == ds.id) {
+
+						if (!secHeader) {
+							secHeader = true;
+							content += '#### Sections\n'
+							content += 'Section | Last updated | UID\n';
+							content += '--- | --- | ---\n';
+						}
+
+						content += sec.name + ' | ' + sec.lastUpdated.substr(0,10) + ' | ' + sec.id + '\n';
+					}
+				}
+
+				content += '#### Data Set - Data Set Section - Data Element\n';
+				content += 'Data Set | Data Set Section | Data Element\n';
+				content += '--- | --- | ---\n';
+				for (var k = 0; k < ds.dataSetElements.length; k++) {
+					de = ds.dataSetElements[k].dataElement;
+
+					var section = "[None]";
+					for (var l = 0; metaData.sections && l < metaData.sections.length; l++) {
+						sec = metaData.sections[l];
+						if (ds.id === sec.dataSet.id) {
+							for (var m = 0; m < sec.dataElements.length; m++) {
+								if (de.id === sec.dataElements[m].id) {
+									m = sec.dataElements.length;
+									l = metaData.sections.length;
+									section = sec.name;
+								}
+							}
+						}
+					}
+
+					for (var l = 0; l < metaData.dataElements.length; l++) {
+						if (de.id === metaData.dataElements[l].id) {
+							de = metaData.dataElements[l];
+							break;
+						}
+					}
+
+					content += ds.name + ' | ' + section + ' | ' + de.name + '\n';
+				}
 			}
+		}
+
+		//data elements: name, shortname, description, categorycombo, uid
+		if (metaData.dataElements && metaData.dataElements.length > 0) {
+			content += '\n## Data Elements\n'
+			content += 'Name | Shortname | Description | Categorycombo | Last updated | UID\n'
+			content += '--- | --- | --- | --- | --- | --- \n'
+
+			for (var i = 0; i < metaData.dataElements.length; i++) {
+				de = metaData.dataElements[i];
+
+				var comboName;
+				for (var j = 0; j < metaData.categoryCombos.length; j++) {
+
+					if (de.categoryCombo.id === metaData.categoryCombos[j].id) {
+						comboName = metaData.categoryCombos[j].name;
+						j = metaData.categoryCombos.length;
+					}
+				}
+
+				content += de.name + ' | ' + de.shortName + ' | ' + (de.description ? de.description : '_') + ' | ' + comboName + ' | ' + de.lastUpdated.substr(0,10) + ' | ' + de.id + '\n';
+			}
+		}
+
+		//data element groups
+		if (metaData.dataElementGroups && metaData.dataElementGroups.length > 0) {
+			content += '\n## Data Element Groups\n'
+			content += 'Name | Shortname | Last updated | UID\n'
+			content += '--- | --- | --- | --- \n'
+
+			for (var j = 0; metaData.dataElementGroups && j < metaData.dataElementGroups.length; j++) {
+				item = metaData.dataElementGroups[j];
+				content += item.name + ' | ' + item.shortName + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+
+			}
+
+			content += '### Data Element Groups - Data Elements\n'
+			content += 'Data Element Group | Data Element\n'
+			content += '--- | --- \n'
+			var item, elements;
+			for (var j = 0; metaData.dataElementGroups && j < metaData.dataElementGroups.length; j++) {
+				item = metaData.dataElementGroups[j];
+				for (var k = 0; k < item.dataElements.length; k++) {
+					de = item.dataElements[k];
+					for (var l = 0; l < metaData.dataElements.length; l++) {
+						if (de.id === metaData.dataElements[l].id) {
+							content += item.name + ' | ' + metaData.dataElements[l].name + '\n';
+						}
+					}
+				}
+
+
+			}
+		}
+
+		//categorycombos
+		if (metaData.categoryCombos && metaData.categoryCombos.length > 0) {
+			content += '\n## Category Combinations\n'
+			content += 'Name | Last updated | UID | Categories\n'
+			content += '--- | --- | --- | --- \n'
+
+			var cc, dec, elements;
+			for (var i = 0; i < metaData.categoryCombos.length; i++) {
+				cc = metaData.categoryCombos[i];
+				elements = [];
+
+				for (var j = 0; j < cc.categories.length; j++) {
+					for (var k = 0; k < metaData.categories.length; k++) {
+						if (cc.categories[j].id == metaData.categories[k].id) elements.push(metaData.categories[k].name);
+					}
+				}
+
+				content += cc.name + ' | ' + cc.lastUpdated.substr(0,10) + ' | ' + cc.id + ' | ' + (elements.length > 0 ? elements.join('; ') : ' ') + '\n';
+			}
+		}
+
+		//categories
+		if (metaData.categories && metaData.categories.length > 0) {
+			content += '\n## Data Element Categories\n'
+			content += 'Name | Last updated | UID | Category options\n'
+			content += '--- | --- | --- | --- \n'
+
+			var dec, co, elements;
+			for (var i = 0; i < metaData.categories.length; i++) {
+				dec = metaData.categories[i];
+				elements = [];
+
+				for (var j = 0; j < dec.categoryOptions.length; j++) {
+					for (var k = 0; k < metaData.categoryOptions.length; k++) {
+						if (dec.categoryOptions[j].id == metaData.categoryOptions[k].id) elements.push(metaData.categoryOptions[k].name);
+					}
+				}
+
+				content += dec.name + ' | ' + dec.lastUpdated.substr(0,10) + ' | ' + dec.id + ' | ' + (elements.length > 0 ? elements.join('; ') : ' ') + '\n';
+			}
+		}
+
+		//category options
+		if (metaData.categoryOptions && metaData.categoryOptions.length > 0) {
+			content += '\n## Data Element Category Options\n'
+			content += 'Name | Last updated | UID\n'
+			content += '--- | --- | --- \n'
+
+			var co;
+			for (var i = 0; i < metaData.categoryOptions.length; i++) {
+				co = metaData.categoryOptions[i];
+				content += co.name + ' | ' + co.lastUpdated.substr(0,10) + ' | ' + co.id + '\n';
+			}
+		}
+
+		//categoryOptionCombos
+		if (metaData.categoryOptionCombos && metaData.categoryOptionCombos.length > 0) {
+			content += '\n## Category Option Combination\n'
+			content += 'Name | Last updated | UID\n'
+			content += '--- | --- | --- \n'
+
+			var coc;
+			for (var i = 0; i < metaData.categoryOptionCombos.length; i++) {
+				coc = metaData.categoryOptionCombos[i];
+				content += coc.name + ' | ' + coc.lastUpdated.substr(0,10) + ' | ' + coc.id + '\n';
+			}
+		}
+
+		//categoryOptionGroupSets
+		if (metaData.categoryOptionGroupSets && metaData.categoryOptionGroupSets.length > 0) {
+			content += '\n## Category Option Group Sets\n'
+			content += 'Name | Last updated | UID\n'
+			content += '--- | --- | --- \n'
+
+			var cogs;
+			for (var i = 0; i < metaData.categoryOptionGroupSets.length; i++) {
+				cogs = metaData.categoryOptionGroupSets[i];
+				content += cogs.name + ' | ' + cogs.lastUpdated.substr(0,10) + ' | ' + cogs.id + '\n';
+			}
+		}
+
+		//categoryOptionGroups
+		if (metaData.categoryOptionGroups && metaData.categoryOptionGroups.length > 0) {
+			content += '\n## Category Option Groups\n'
+			content += 'Name | Shortname | Last updated | UID\n'
+			content += '--- | --- | --- | --- \n'
+
+			for (var j = 0; metaData.categoryOptionGroups && j < metaData.categoryOptionGroups.length; j++) {
+				item = metaData.categoryOptionGroups[j];
+				content += item.name + ' | ' + item.shortName + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+
+			}
+
+			content += '### Category Option Group Sets - Category Option Groups\n'
+			content += 'Category Option Group Sets | Category Option Groups\n'
+			content += '--- | --- \n'
+			var item, cog;
+			for (var j = 0; metaData.categoryOptionGroupSets && j < metaData.categoryOptionGroupSets.length; j++) {
+				item = metaData.categoryOptionGroupSets[j];
+				for (var k = 0; k < item.categoryOptionGroups.length; k++) {
+					cog = item.categoryOptionGroups[k];
+					for (var l = 0; l < metaData.categoryOptionGroups.length; l++) {
+						if (cog.id === metaData.categoryOptionGroups[l].id) {
+							content += item.name + ' | ' + metaData.categoryOptionGroups[l].name + '\n';
+						}
+					}
+				}
+			}
+		}
+
+		//validation rules
+		if (metaData.validationRules && metaData.validationRules.length > 0) {
+			content += '\n## Validation Rules\n'
+			content += 'Name | Instruction | Left side | Operator | Right side | Last updated | UID\n'
+			content += '--- | --- | --- | --- | --- | --- | --- \n'
+
+			for (var i = 0; i < metaData.validationRules.length; i++) {
+				var vr = metaData.validationRules[i];
+
+				content += vr.name + ' | ' + vr.instruction + ' | ' + vr.leftSide.description + ' | ' + vr.operator + ' | ' + vr.rightSide.description + ' | ' + vr.lastUpdated.substr(0,10) + ' | ' + vr.id + '\n';
+			}
+		}
+
+		//predictors
+		if (metaData.predictors && metaData.predictors.length > 0) {
+			content += '\n## Predictors\n'
+			content += 'Name | Generator | Sequential samples | Annual samples | Target data element | Last updated | UID\n'
+			content += '--- | --- | --- | --- | --- | --- | --- \n'
+
+			var pred;
+			for (var i = 0; i < metaData.predictors.length; i++) {
+				pred = metaData.predictors[i];
+
+				var targetName = '';
+				for (var j = 0; j < metaData.dataElements.length; j++) {
+					if (metaData.dataElements[j].id === pred.output.id) targetName = metaData.dataElements[j].name;
+				}
+				content += pred.name + ' | ';
+				content += pred.generator.description + ' | ';
+				content += pred.sequentialSampleCount + ' | ';
+				content += pred.annualSampleCount + ' | ';
+				content += targetName + ' | ';
+				content += pred.lastUpdated.substr(0,10) + ' | ' + pred.id + '\n';
+			}
+		}
+
+		//indicators: name, shortname, description, numeratorDescription, denominatorDescription, type, uid
+		if (metaData.indicators && metaData.indicators.length > 0) {
+			content += '\n## Indicators\n'
+			content += 'Name | Shortname | Description | Numerator | Denominator | Type | Last updated | UID \n'
+			content += '--- | --- | --- | --- | --- | --- | --- | --- \n'
+
+			var ind, type;
+			for (var i = 0; i < metaData.indicators.length; i++) {
+				ind = metaData.indicators[i];
+
+				for (var j = 0; j < metaData.indicatorTypes.length; j++) {
+					if (ind.indicatorType.id == metaData.indicatorTypes[j].id) {
+						type = metaData.indicatorTypes[j].name;
+						break;
+					}
+				}
+
+				content += ind.name + ' | ' + ind.shortName + ' | ' + (ind.description ? ind.description : ' ') + ' | ' +
+					ind.numeratorDescription + ' | ' + ind.denominatorDescription + ' | ' + type + ' | ' + (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : '') + ' | ' + ind.id + '\n';
+			}
+		}
+
+		//indicator groups
+		if (metaData.indicatorGroups && metaData.indicatorGroups.length > 0) {
+			content += '\n## Indicator Groups\n'
+			content += 'Name | Shortname | Last updated | UID\n'
+			content += '--- | --- | --- | --- \n'
+
+			for (var j = 0; metaData.indicatorGroups && j < metaData.indicatorGroups.length; j++) {
+				item = metaData.indicatorGroups[j];
+				content += item.name + ' | ' + item.shortName + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+
+			}
+
+			content += '### Indicator Groups - Indicators\n'
+			content += 'Indicator Group | Indicator\n'
+			content += '--- | --- \n'
+			var item, elements;
+			for (var j = 0; metaData.indicatorGroups && j < metaData.indicatorGroups.length; j++) {
+				item = metaData.indicatorGroups[j];
+				for (var k = 0; k < item.indicators.length; k++) {
+					de = item.indicators[k];
+					for (var l = 0; l < metaData.indicators.length; l++) {
+						if (de.id === metaData.indicators[l].id) {
+							content += item.name + ' | ' + metaData.indicators[l].name + '\n';
+						}
+					}
+				}
+			}
+		}
+
+		//indicatorTypes
+		if (metaData.indicatorTypes && metaData.indicatorTypes.length > 0) {
+			content += '\n## Indicator types\n'
+			content += 'Name | Factor | Last updated | UID\n'
+			content += '--- | --- | --- | --- \n'
+
+			var it;
+			for (var i = 0; i < metaData.indicatorTypes.length; i++) {
+				it = metaData.indicatorTypes[i];
+				content += it.name + ' | ' + it.factor + ' | ' + (it.lastUpdated ? it.lastUpdated.substr(0,10) : '') + ' | ' + it.id + '\n';
+			}
+		}
+
+		//dashboards and dashboard items
+		if (metaData.dashboards && metaData.dashboards.length > 0) {
+			var db, dbi;
+			content += '\n## Dashboards\n'
+			for (var i = 0; i < metaData.dashboards.length; i++) {
+				db = metaData.dashboards[i];
+
+				content += '### ' + db.name + ' \n';
+				content += 'Property | Value \n --- | --- \n';
+				content += 'Name: | ' + db.name + '\n';
+				content += 'Last updated: | ' + db.lastUpdated.substr(0,10) + '\n';
+				content += 'UID: | ' + db.id+ '\n';
+
+
+
+				content += '#### Dashboard items\n';
+				content += 'Content/item type | Content name | Content UID | Last updated | Dashboard Item UID \n';
+				content += '--- | --- | --- | --- | ---\n';
+
+
+				for (var j = 0; j < db.dashboardItems.length; j++) {
+					for (var l = 0; l < metaData.dashboardItems.length; l++) {
+						if (db.dashboardItems[j].id === metaData.dashboardItems[l].id) {
+							dbi = metaData.dashboardItems[l];
+							var type, name, id;
+							if (dbi.chart) {
+								type = 'Chart';
+								for (var k = 0; k < metaData.charts.length; k++) {
+									if (dbi.chart.id === metaData.charts[k].id) {
+										name = metaData.charts[k].name;
+										id = metaData.charts[k].id;
+										break;
+									}
+								}
+							}
+							else if (dbi.map) {
+								type = 'Map';
+								for (var k = 0; k < metaData.maps.length; k++) {
+									if (dbi.map.id === metaData.maps[k].id) {
+										name = metaData.maps[k].name;
+										id = metaData.maps[k].id;
+										break;
+									}
+								}
+							}
+							else if (dbi.reportTable) {
+								type = 'Pivot table';
+								for (var k = 0; k < metaData.reportTables.length; k++) {
+									if (dbi.reportTable.id === metaData.reportTables[k].id) {
+										name = metaData.reportTables[k].name;
+										id = metaData.reportTables[k].id;
+										break;
+									}
+								}
+							}
+							else if (dbi.resources.length > 0) {
+								type = 'Resource (shortcuts)';
+								name = ' ';
+								id = ' ';
+							}
+							else if (dbi.reports.length > 0) {
+								type = 'Report (shortcuts)';
+								name = ' ';
+								id = ' ';
+							}
+							content += type + ' | ' + name + ' | ' + id + ' | ' + dbi.lastUpdated.substr(0,10) + ' | ' + dbi.id + '\n';
+						}
+					}
+				}
+			}
+		}
+
+		//charts
+		if (metaData.charts && metaData.charts.length > 0) {
+			content += '\n## Charts\n'
+			content += 'Name | Description | Last updated | UID\n'
+			content += '--- | --- | --- | --- \n'
+
+			for (var i = 0; i < metaData.charts.length; i++) {
+				var item = metaData.charts[i];
+				content += item.name + ' | ' + (item.description ? item.description : ' ') + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+			}
+		}
+
+		//pivottables
+		if (metaData.reportTables && metaData.reportTables.length > 0) {
+			content += '\n## Report tables\n'
+			content += 'Name | Description | Last updated | UID\n'
+			content += '--- | --- | --- | --- \n'
+
+			for (var i = 0; i < metaData.reportTables.length; i++) {
+				var item = metaData.reportTables[i];
+				content += item.name + ' | ' + (item.description ? item.description : ' ') + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+			}
+		}
+
+		//maps and map view
+		if (metaData.maps && metaData.maps.length > 0) {
+			content += '\n## Maps\n'
+			content += 'Name | Description | Last updated | UID\n'
+			content += '--- | --- | --- | --- \n'
+
+			for (var i = 0; i < metaData.maps.length; i++) {
+				var item = metaData.maps[i];
+				content += item.name + ' | ' + (item.description ? item.description : ' ') + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+			}
+
+			//mapviews
+			if (metaData.mapViews && metaData.mapViews.length > 0) {
+				content += '### Map views\n'
+				content += 'Parent map name | Parent map UID | Last updated | UID\n'
+				content += '--- | --- | --- | --- \n'
+
+				for (var k = 0; k < metaData.mapViews.length; k++) {
+					var mv = metaData.mapViews[k];
+					for (var i = 0; i < metaData.maps.length; i++) {
+						var item = metaData.maps[i];
+						for (var j = 0; j < item.mapViews.length; j++) {
+							if (mv.id === item.mapViews[j].id) {
+								content += item.name + ' | ' + item.id + ' | ' + mv.lastUpdated.substr(0,10) + ' | ' + mv.id + '\n';
+							}
+						}
+					}
+				}
+			}
+		}
+
+		//reports
+		if (metaData.reports && metaData.reports.length > 0) {
+			content += '\n## Standard reports\n'
+			content += 'Name | Last updated | UID\n'
+			content += '--- | --- | --- \n'
+
+			for (var i = 0; i < metaData.reports.length; i++) {
+				var item = metaData.reports[i];
+				content += item.name + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+			}
+		}
+
+		//resources
+		if (metaData.documents && metaData.documents.length > 0) {
+			content += '\n## Resources\n'
+			content += 'Name | Last updated | UID\n'
+			content += '--- | --- | --- \n'
+
+			for (var i = 0; i < metaData.documents.length; i++) {
+				var item = metaData.documents[i];
+				content += item.name + ' | ' + item.lastUpdated.substr(0,10) + ' | ' + item.id + '\n';
+			}
+		}
+
+		//legend sets and legends
+		if (metaData.legendSets && metaData.legendSets.length > 0) {
+			content += '\n## Legend Sets\n'
+
+			var legendSet, legend;
+			for (var i = 0; i < metaData.legendSets.length; i++) {
+				legendSet = metaData.legendSets[i];
+
+				content += '\n\n### ' + legendSet.name + ' \n';
+				content += 'Property | Value \n --- | --- \n';
+				content += 'Name: | ' + legendSet.name + '\n';
+				content += 'Last updated: | ' + legendSet.lastUpdated.substr(0,10) + '\n';
+				content += 'UID: | ' + legendSet.id+ '\n';
+
+
+				content += '\n#### Legends\n';
+				content += 'Name | Start | End | Last updated | UID \n';
+				content += '--- | --- | --- | --- | ---\n';
+
+
+				for (var j = 0; j < legendSet.legends.length; j++) {
+					for (var l = 0; l < metaData.legends.length; l++) {
+						if (legendSet.legends[j].id === metaData.legends[l].id) {
+							var item = metaData.legends[l];
+							content += item.name + ' | ' + item.startValue + ' | ' + item.endValue + ' | ' + item.lastUpdated + ' | ' + item.id + '\n';
+						}
+					}
+				}
+			}
+		}
+
+		fs.writeFile(currentExport.output + '_reference.md', content, function(err) {
+			if(err) {
+				return console.log(err);
+			}
+
+			console.log("Metadata reference saved");
+			deferred.resolve(true);
 		});
+
+		return deferred.promise;
+
+	}
+
+	function makeIndicatorChecklist() {
+		var deferred = Q.defer();
+
+		var content = '# Configuration checklist\n';
+		var table;
+
+
+		//indicators
+		if (metaData.indicators && metaData.indicators.length > 0) {
+			table = [];
+			table.push(['Name', 'Replace', 'Config', 'Remove']);
+
+			var ind, type;
+			for (var i = 0; i < metaData.indicators.length; i++) {
+				ind = metaData.indicators[i];
+
+				table.push([ind.name, '▢', '▢', '▢']);
+			}
+
+			content += '\n## Indicators \n'
+			content += htmlTableFromArray(table, true, [70, 10, 10, 10], ['left', 'center', 'center', 'center']);
+		}
+
+		//category option group sets
+		if (metaData.categoryOptionGroups && metaData.categoryOptionGroups.length > 0) {
+			table = [];
+			table.push(['Name', 'Config']);
+
+			var cog, type;
+			for (var i = 0; i < metaData.categoryOptionGroups.length; i++) {
+				cog = metaData.categoryOptionGroups[i];
+
+				table.push([cog.name, '▢']);
+			}
+
+			content += '\n## Category Option Groups \n'
+			content += htmlTableFromArray(table, true, [90, 10], ['left', 'center']);
+		}
+
+		var types = ['charts', 'maps', 'reportTables'];
+		for (var k = 0; k < types.length; k++) {
+			for (var i = 0; i < metaData[types[k]].length; i++) {
+
+				var list = metaData[types[k]];
+				if (list && list.length > 0) {
+					var title;
+					switch (types[k]) {
+						case 'charts':
+							title = 'Data Visualizer favourites';
+							break;
+						case 'maps':
+							title = 'GIS favourites';
+							break;
+						case 'reportTables':
+							title = 'Pivot Table favourites';
+							break;
+					}
+
+					table = [];
+					table.push(['Name', 'Action', 'Description', 'Done', 'Remove']);
+
+					for (var i = 0; i < list.length; i++) {
+						var item = list[i];
+
+						var type = 'Review';
+						if (favoriteModifications[item.id]) {
+							if (favoriteModifications[item.id].dataSet && favoriteModifications[item.id].category) {
+								type = "Category, Completeness";
+							}
+							else if (favoriteModifications[item.id].dataSet) {
+								type = "Completeness";
+							}
+							else {
+								type = "Category";
+							}
+						}
+
+						var desc = item.description ? item.description.replace(/\n/g, "<br />") : '';
+						table.push([item.name , type, desc, '▢', '▢']);
+					}
+
+					content += '\n## ' + title + ' \n';
+					content += htmlTableFromArray(table, true, [40, 10, 30, 10, 10], ['left', 'left', 'left', 'center', 'center']);
+				}
+			}
+		}
+
+
+		fs.writeFile(currentExport.output + '_checklist.md', content, function(err) {
+			if(err) {
+				return console.log(err);
+			}
+
+			console.log("Configuration checklist saved");
+			deferred.resolve(true);
+		});
+
+		return deferred.promise;
+	}
+
+	function saveFileJson() {
+		var deferred = Q.defer();
+
+		//Save file
+		var data = JSON.stringify(metaData);
+		fs.writeFile(currentExport.output + '.json', data, function(err) {
+			if(err) {
+				return console.log(err);
+			}
+
+			console.log("Metadata saved");
+			deferred.resolve(true);
+		});
+
+		return deferred.promise;
+	}
+
 	function sortMetaData() {
 		var objects = arrayFromKeys(metaData);
 		var items;
@@ -1001,6 +1872,43 @@
 			}
 		}
 	}
+
+	//Use HTML for tables, so ensure support for newlines etc
+	function htmlTableFromArray(content, header, columnWidths, alignment) {
+
+		if (content.length < 1 || !columnWidths || columnWidths.length != content[0].length) {
+			console.log("Invalid parameters - need at least header");
+			return '';
+		}
+
+		var tableWidth = 100
+		var table = '\n<table width="' + tableWidth + '%">\n';
+		if (columnWidths) {
+			for (var i = 0; i < columnWidths.length; i++) {
+				table += '\t<col width="' + columnWidths[i] + '%">\n';
+			}
+		}
+
+		if (header) {
+			table += '\t<tr>\n';
+			for (var i = 0; i < content[0].length; i++) {
+				table += '\t\t<th>' + content[0][i] + '</th>\n';
+			}
+			table += '\t</tr>\n';
+		}
+
+		for (var i = 1; i < content.length; i++) {
+			table += '\t<tr>\n';
+			for (var j = 0; j < content[i].length; j++) {
+				if (alignment) table += '\t\t<td align="' + alignment[j] + '">' + content[i][j] + '</td>\n';
+				else table += '\t\t<td>' + content[i][j] + '</td>\n';
+			}
+			table += '\t</tr>\n';
+		}
+
+		table += '</table>\n\n';
+
+		return table;
 	}
 
 	function plainIdsFromObjects(idObjects) {
