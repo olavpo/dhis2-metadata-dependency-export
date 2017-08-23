@@ -1008,6 +1008,8 @@
 				if (metaData[types[k]][i].name === 'default') currentDefault = metaData[types[k]][i].id;
 			}
 
+			if (!currentDefault) continue;
+
 			switch (types[k]) {
 				case 'categoryOptions':
 					defaultDefault = "xYerKDKCefk";
@@ -1470,7 +1472,7 @@
 				pred = metaData.predictors[i];
 
 				var targetName = '';
-				for (var j = 0; j < metaData.dataElements.length; j++) {
+				for (var j = 0; metaData.dataElements && j < metaData.dataElements.length; j++) {
 					if (metaData.dataElements[j].id === pred.output.id) targetName = metaData.dataElements[j].name;
 				}
 				content += pred.name + ' | ';
