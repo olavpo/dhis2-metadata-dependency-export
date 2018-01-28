@@ -11,7 +11,7 @@
 	module.exports.get = get;
 	module.exports.post = post;
 
-	var debug = false;
+	var debug = true;
 
 
 	function post(url, payload) {

@@ -6,24 +6,8 @@
   },
   "export": [
     {
-    "type": "dashboardAggregate",
-      "output": "/Users/Olav/Desktop/tb_dashboard.json",
-    "publicAccess": "r-------",
-    "dashboardIds": ["BwYHhBSvLNL", "MaJqTSteIqg", "VtRtBqorLfR", "dp6xqlPGxbA", "xJXvUOEhnE9", "L2UmLVcb6Dm"],
-    "placeHolder": "[PLACEHOLDER]",
-      "indicatorGroupIds": ["V4SoC7TzFMi", "OMyYjoU07pC", "QCrsjqhAcWA"],
-    "otherObjects": [
-      {
-        "type": "charts",
-        "ids": []
-      }
-    ]
-    }
-  ],
-  "inactive": [
-    {
     "type": "completeAggregate",
-      "output": "/Users/Olav/Desktop/tb_aggregate.json",
+      "output": "/Users/Olav/Downloads/tb_aggregate.json",
     "publicAccess": "r-------",
     "dataSetIds": ["OyutuMOPgkt", "lYNYevNTO7B", "Yhk4Ee59d9y", "VQTEps77HLq", "Fn5XKDV6WRY", "rSfhnkAdm5y", "kiODgwGG9I2"],
     "dashboardIds": ["BwYHhBSvLNL", "MaJqTSteIqg", "VtRtBqorLfR", "dp6xqlPGxbA", "xJXvUOEhnE9", "L2UmLVcb6Dm"],
@@ -35,6 +19,23 @@
         "type": "charts",
         "ids": []
   }
+  ],
+  "inactive": [
+    {
+    "name": "TB dashboards",
+    "type": "dashboardAggregate",
+      "output": "/Users/Olav/Downloads/tb_dashboard.json",
+    "publicAccess": "r-------",
+    "dashboardIds": ["BwYHhBSvLNL", "MaJqTSteIqg", "VtRtBqorLfR", "dp6xqlPGxbA", "xJXvUOEhnE9", "L2UmLVcb6Dm"],
+    "placeHolder": "[PLACEHOLDER]",
+      "indicatorGroupIds": ["V4SoC7TzFMi", "OMyYjoU07pC", "QCrsjqhAcWA"],
+    "otherObjects": [
+      {
+        "type": "charts",
+        "ids": []
+      }
+    ]
+    }
     ]
     }
   ]
