@@ -16,12 +16,12 @@ module.exports.arraySortByProperty = arraySortByProperty;
 module.exports.arrayFromKeys = arrayFromKeys;
 
 
-function saveFileJson() {
+function saveFileJson(fileName, jsonContent) {
 	var deferred = Q.defer();
 
 	//Save file
-	var data = JSON.stringify(metaData);
-	fs.writeFile(currentExport.output + ".json", data, function(err) {
+	var data = JSON.stringify(jsonContent);
+	fs.writeFile(fileName + ".json", data, function(err) {
 		if(err) {
 			return console.log(err);
 		}
@@ -35,7 +35,7 @@ function saveFileJson() {
 
 
 
-function sortMetaData() {
+function sortMetaData(metaData) {
 	var objects = arrayFromKeys(metaData);
 	var items;
 	for (var i = 0; i < objects.length; i++) {
@@ -48,6 +48,8 @@ function sortMetaData() {
 			metaData[objects[i]] = arraySortByProperty(items, "name", false, false);
 		}
 	}
+	
+	return metaData;
 }
 
 
@@ -129,7 +131,6 @@ function idsFromFormula(formula, dataElementOnly) {
 
 	return arrayRemoveDuplicates(matches);
 }
-
 
 
 

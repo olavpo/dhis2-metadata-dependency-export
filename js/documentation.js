@@ -1,19 +1,32 @@
 'use strict';
 
 var fs = require("fs");
+var Q = require('q');
+var utils = require('./utils.js');
 
 module.exports.makeReferenceList = makeReferenceList;
 module.exports.makeIndicatorChecklist = makeIndicatorChecklist;
 
 
 //Read metadata and make a Table of Content in markdown format
-function makeReferenceList(metaData) {
+function makeReferenceList(fileName, metaData) {
 	var deferred = Q.defer();
+
+	//Make index over all object types, so that we can keep track of which ones
+	//have been written to the reference doc
+	var referenced = {};
+	for (var object in metaData) {
+		referenced[object] = false;
+	}
 
 	var content = "# Metadata reference\n";
 
 	//dataset: sections, custom form bool, data elements, uid
 	if (metaData.dataSets && metaData.dataSets.length > 0) {
+		referenced["dataSets"] = true;
+		referenced["sections"] = true;
+		referenced["dataEntryForms"] = true;
+		
 		var ds, sec, de;
 		content += "\n## Data sets\n";
 		for (var i = 0; i < metaData.dataSets.length; i++) {
@@ -76,6 +89,8 @@ function makeReferenceList(metaData) {
 
 	//data elements: name, shortname, description, categorycombo, uid
 	if (metaData.dataElements && metaData.dataElements.length > 0) {
+		referenced["dataElements"] = true;
+		
 		content += "\n## Data Elements\n";
 		content += "Name | Shortname | Description | Categorycombo | Last updated | UID\n";
 		content += "--- | --- | --- | --- | --- | --- \n";
@@ -98,6 +113,8 @@ function makeReferenceList(metaData) {
 
 	//data element groups
 	if (metaData.dataElementGroups && metaData.dataElementGroups.length > 0) {
+		referenced["dataElementGroups"] = true;				
+				
 		content += "\n## Data Element Groups\n";
 		content += "Name | Shortname | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
@@ -129,6 +146,8 @@ function makeReferenceList(metaData) {
 
 	//categorycombos
 	if (metaData.categoryCombos && metaData.categoryCombos.length > 0) {
+		referenced["categoryCombos"] = true;
+		
 		content += "\n## Category Combinations\n";
 		content += "Name | Last updated | UID | Categories\n";
 		content += "--- | --- | --- | --- \n";
@@ -150,6 +169,8 @@ function makeReferenceList(metaData) {
 
 	//categories
 	if (metaData.categories && metaData.categories.length > 0) {
+		referenced["categories"] = true;
+		
 		content += "\n## Data Element Categories\n";
 		content += "Name | Last updated | UID | Category options\n";
 		content += "--- | --- | --- | --- \n";
@@ -171,6 +192,8 @@ function makeReferenceList(metaData) {
 
 	//category options
 	if (metaData.categoryOptions && metaData.categoryOptions.length > 0) {
+		referenced["categoryOptions"] = true;
+		
 		content += "\n## Data Element Category Options\n";
 		content += "Name | Last updated | UID\n";
 		content += "--- | --- | --- \n";
@@ -184,6 +207,8 @@ function makeReferenceList(metaData) {
 
 	//categoryOptionCombos
 	if (metaData.categoryOptionCombos && metaData.categoryOptionCombos.length > 0) {
+		referenced["categoryOptionCombos"] = true;
+		
 		content += "\n## Category Option Combination\n";
 		content += "Name | Last updated | UID\n";
 		content += "--- | --- | --- \n";
@@ -197,6 +222,8 @@ function makeReferenceList(metaData) {
 
 	//categoryOptionGroupSets
 	if (metaData.categoryOptionGroupSets && metaData.categoryOptionGroupSets.length > 0) {
+		referenced["categoryOptionGroupSets"] = true;
+		
 		content += "\n## Category Option Group Sets\n";
 		content += "Name | Last updated | UID\n";
 		content += "--- | --- | --- \n";
@@ -210,6 +237,8 @@ function makeReferenceList(metaData) {
 
 	//categoryOptionGroups
 	if (metaData.categoryOptionGroups && metaData.categoryOptionGroups.length > 0) {
+		referenced["categoryOptionGroups"] = true;
+		
 		content += "\n## Category Option Groups\n";
 		content += "Name | Shortname | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
@@ -239,6 +268,8 @@ function makeReferenceList(metaData) {
 
 	//validation rules
 	if (metaData.validationRules && metaData.validationRules.length > 0) {
+		referenced["validationRules"] = true;
+		
 		content += "\n## Validation Rules\n";
 		content += "Name | Instruction | Left side | Operator | Right side | Last updated | UID\n";
 		content += "--- | --- | --- | --- | --- | --- | --- \n";
@@ -249,9 +280,44 @@ function makeReferenceList(metaData) {
 			content += vr.name + " | " + vr.instruction + " | " + vr.leftSide.description + " | " + vr.operator + " | " + vr.rightSide.description + " | " + vr.lastUpdated.substr(0,10) + " | " + vr.id + "\n";
 		}
 	}
+	
+
+	//indicator groups
+	if (metaData.validationRuleGroups && metaData.validationRuleGroups.length > 0) {
+		referenced["validationRuleGroups"] = true;
+		
+		content += "\n## Validation Rule Groups\n";
+		content += "Name | Last updated | UID\n";
+		content += "--- | --- | --- \n";
+
+		for (var j = 0; metaData.validationRuleGroups && j < metaData.validationRuleGroups.length; j++) {
+			item = metaData.validationRuleGroups[j];
+			content += item.name + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+
+		}
+
+		content += "### Validation Rule Groups - Validation Rules\n";
+		content += "Validation Rule Group | Validation Rule\n";
+		content += "--- | --- \n";
+		var item, elements;
+		for (var j = 0; metaData.validationRuleGroups && j < metaData.validationRuleGroups.length; j++) {
+			item = metaData.validationRuleGroups[j];
+			for (var k = 0; k < item.validationRules.length; k++) {
+				de = item.validationRules[k];
+				for (var l = 0; l < metaData.validationRules.length; l++) {
+					if (de.id === metaData.validationRules[l].id) {
+						content += item.name + " | " + metaData.validationRules[l].name + "\n";
+					}
+				}
+			}
+		}
+	}
+	
 
 	//predictors
 	if (metaData.predictors && metaData.predictors.length > 0) {
+		referenced["predictors"] = true;
+		
 		content += "\n## Predictors\n";
 		content += "Name | Generator | Sequential samples | Annual samples | Target data element | Last updated | UID\n";
 		content += "--- | --- | --- | --- | --- | --- | --- \n";
@@ -275,6 +341,8 @@ function makeReferenceList(metaData) {
 
 	//indicators: name, shortname, description, numeratorDescription, denominatorDescription, type, uid
 	if (metaData.indicators && metaData.indicators.length > 0) {
+		referenced["indicators"] = true;
+		
 		content += "\n## Indicators\n";
 		content += "Name | Shortname | Description | Numerator | Denominator | Type | Last updated | UID \n";
 		content += "--- | --- | --- | --- | --- | --- | --- | --- \n";
@@ -297,6 +365,8 @@ function makeReferenceList(metaData) {
 
 	//indicator groups
 	if (metaData.indicatorGroups && metaData.indicatorGroups.length > 0) {
+		referenced["indicatorGroups"] = true;
+		
 		content += "\n## Indicator Groups\n";
 		content += "Name | Shortname | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
@@ -326,6 +396,8 @@ function makeReferenceList(metaData) {
 
 	//indicatorTypes
 	if (metaData.indicatorTypes && metaData.indicatorTypes.length > 0) {
+		referenced["indicatorTypes"] = true;
+		
 		content += "\n## Indicator types\n";
 		content += "Name | Factor | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
@@ -339,6 +411,9 @@ function makeReferenceList(metaData) {
 
 	//dashboards and dashboard items
 	if (metaData.dashboards && metaData.dashboards.length > 0) {
+		referenced["dashboards"] = true;
+		referenced["dashboardItems"] = true;
+	
 		var db, dbi;
 		content += "\n## Dashboards\n";
 		for (var i = 0; i < metaData.dashboards.length; i++) {
@@ -411,6 +486,8 @@ function makeReferenceList(metaData) {
 
 	//charts
 	if (metaData.charts && metaData.charts.length > 0) {
+		referenced["charts"] = true;
+		
 		content += "\n## Charts\n";
 		content += "Name | Description | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
@@ -423,6 +500,8 @@ function makeReferenceList(metaData) {
 
 	//pivottables
 	if (metaData.reportTables && metaData.reportTables.length > 0) {
+		referenced["reportTables"] = true;
+		
 		content += "\n## Report tables\n";
 		content += "Name | Description | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
@@ -435,6 +514,9 @@ function makeReferenceList(metaData) {
 
 	//maps and map view
 	if (metaData.maps && metaData.maps.length > 0) {
+		referenced["maps"] = true;
+		referenced["mapViews"] = true;
+		
 		content += "\n## Maps\n";
 		content += "Name | Description | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
@@ -466,6 +548,8 @@ function makeReferenceList(metaData) {
 
 	//reports
 	if (metaData.reports && metaData.reports.length > 0) {
+		referenced["reports"] = true;
+		
 		content += "\n## Standard reports\n";
 		content += "Name | Last updated | UID\n";
 		content += "--- | --- | --- \n";
@@ -478,6 +562,8 @@ function makeReferenceList(metaData) {
 
 	//resources
 	if (metaData.documents && metaData.documents.length > 0) {
+		referenced["documents"] = true;
+		
 		content += "\n## Resources\n";
 		content += "Name | Last updated | UID\n";
 		content += "--- | --- | --- \n";
@@ -490,6 +576,8 @@ function makeReferenceList(metaData) {
 
 	//legend sets and legends
 	if (metaData.legendSets && metaData.legendSets.length > 0) {
+		referenced["legendSets"] = true;
+		
 		content += "\n## Legend Sets\n";
 
 		var legendSet, legend;
@@ -509,17 +597,24 @@ function makeReferenceList(metaData) {
 
 
 			for (var j = 0; j < legendSet.legends.length; j++) {
-				for (var l = 0; l < metaData.legends.length; l++) {
-					if (legendSet.legends[j].id === metaData.legends[l].id) {
-						var item = metaData.legends[l];
-						content += item.name + " | " + item.startValue + " | " + item.endValue + " | " + item.lastUpdated + " | " + item.id + "\n";
-					}
-				}
+				var item = legendSet.legends[j];
+				content += item.name + " | " + item.startValue + " | " + 
+					item.endValue + " | " + item.lastUpdated + " | " + item.id + "\n";
 			}
 		}
 	}
 
-	fs.writeFile(currentExport.output + "_reference.md", content, function(err) {
+
+	//Check if there are any objects missing. No point aborting, as .json is
+	//already written - but show warning 
+	for (var object in referenced) {
+		if (!referenced[object]) {
+			console.log('Warning: Not included in reference file: ' + object);
+		}
+	}
+	
+
+	fs.writeFile(fileName + "_reference.md", content, function(err) {
 		if(err) {
 			return console.log(err);
 		}
@@ -534,7 +629,7 @@ function makeReferenceList(metaData) {
 
 
 //Read metadata and make checklist for indicator availability in markdown format
-function makeIndicatorChecklist(metaData) {
+function makeIndicatorChecklist(fileName, metaData) {
 	var deferred = Q.defer();
 
 	var content = "# Configuration checklist\n";
@@ -554,7 +649,7 @@ function makeIndicatorChecklist(metaData) {
 		}
 
 		content += "\n## Indicators \n";
-		content += htmlTableFromArray(table, true, [70, 10, 10, 10], ["left", "center", "center", "center"]);
+		content += utils.htmlTableFromArray(table, true, [70, 10, 10, 10], ["left", "center", "center", "center"]);
 	}
 
 	//category option group sets
@@ -570,7 +665,7 @@ function makeIndicatorChecklist(metaData) {
 		}
 
 		content += "\n## Category Option Groups \n";
-		content += htmlTableFromArray(table, true, [90, 10], ["left", "center"]);
+		content += utils.htmlTableFromArray(table, true, [90, 10], ["left", "center"]);
 	}
 
 	var types = ["charts", "maps", "reportTables"];
@@ -616,7 +711,7 @@ function makeIndicatorChecklist(metaData) {
 				}
 
 				content += "\n## " + title + " \n";
-				content += htmlTableFromArray(table, true, [40, 10, 30, 10, 10], ["left", "left", "left", "center", "center"]);
+				content += utils.htmlTableFromArray(table, true, [40, 10, 30, 10, 10], ["left", "left", "left", "center", "center"]);
 			}
 		}
 	}

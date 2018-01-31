@@ -10,15 +10,12 @@ var utils = require("./js/utils.js");
 var metaData;
 var exportQueue = [];
 var currentExport;
-var uids;
-var operandDictionary = {};
-var favoriteModifications = {};
 
 var exporting = false;
 
 var debug = true;
-process.on('uncaughtException', function (err) {
-  console.log('Caught exception: ' + err);
+process.on("uncaughtException", function (err) {
+	console.log("Caught exception: " + err);
 });
 
 run();
@@ -53,15 +50,12 @@ function nextExport() {
 	}
 
 	metaData = {};
-	operandDictionary = {};
-	favoriteModifications = {};
-
 	if (currentExport.type === "completeAggregate") {
 		exportAggregate();
 	}
 
 	else if (currentExport.type === "dashboardAggregate") {
-		//exportDashboardAggregate();
+		exportDashboard();
 	}
 }
 
@@ -71,6 +65,132 @@ function cancelCurrentExport() {
 	console.log("\nCancelling export '" + currentExport.name + "' due to errors.\n");
 	exporting = false;
 	nextExport();
+}
+
+
+
+/**
+ * DASHBOARD (AGGREGATE) EXPORT (2.27)
+ **/
+ 
+/**
+ * Start export of complete aggregate packages: dataset and dashboards with deps
+ */
+function exportDashboard() {
+	/*
+	Only data element in datasets included. Include config option for "placeholder"
+	datasets that is only used to get dependencies, but where the actual dataset is not 
+	included in the export file. This also includes other data elements used in 
+	indicators, like those for population.
+	
+	Favourites and indicator formulas should still be checked for data elements, 
+	category option groups, legend sets etc. For legend sets, category option groups etc
+	they should be included, but for data elements we should only show a warning that 
+	they need to be added to a data set to be included.
+	*/
+		
+	//Do initial dependency export
+	var promises = [
+		dependencyExport("dashboard", currentExport.dashboardIds),
+	];
+	Q.all(promises).then(function (results) {
+				
+		//Get indicators and categoryOptionGroupSets from favourites
+		//Get indicator groups from conf files
+		promises = [
+			indicators(), 
+			categoryOptionGroupSetStructure(),
+			saveObject("indicatorGroups", currentExport.indicatorGroupIds)
+		];
+		Q.all(promises).then(function (results) {
+
+			//TODO: should we include predictors? Difficult without data elements
+			//the predictor-based thresholds need clear explanation
+
+			//Get legends from data elements, indicators and favourites
+			//Get indicator types from indicators
+			promises = [
+				indicatorTypes(), 
+				legendSets()
+			];
+			Q.all(promises).then(function (results) {
+				
+				processDashboard();
+			
+			});	
+			
+		});
+		
+		//Verify that all data elements are included, based on favourites and
+		//indicator formulas
+	});
+				
+}
+
+
+/**
+ * Verify, modify and save aggregate package
+ */
+function processDashboard() {
+
+	var success = true;
+	console.log("Validating exported metadata");
+	
+	//Remove current configuration of indicators and cateogry option groups
+	clearIndicatorFormulas();
+	clearCategoryOptionGroups(); //TODO: consider adding default to "other"
+	
+	//Add prefix to indicators to be mapped //TODO: clearCategoryOptionGroups also?
+	prefixIndicators();
+	
+	//Remove ownership
+	removeOwnership();
+	
+	//Make sure the "default defaults"" are used
+	setDefaultUid();
+
+	//Remove invalid references to data elements or indicators from groups
+	//Verify that there are no data elements or indicators without groups
+	if (!validateGroupReferences()) success = false;	
+	
+	//Verify that favourites only use relative orgunits
+	if (!validateFavoriteOrgunits()) success = false;
+	
+	//Verify that favourites only use indicators
+	if (!validateFavoriteDataItems()) success = false;
+	
+	//Verify that no unsupported data dimensions are used
+	if (!validateFavoriteDataDimension()) success = false;
+	
+	
+	
+	if (success) {
+		console.log("Ready to save " + currentExport.name);
+		saveDashboard();
+	}
+	else {
+		cancelCurrentExport();
+	}
+}
+
+
+/**
+ * Save aggregate package
+ */
+function saveDashboard() {
+
+	//Sort the content of our package
+	metaData = utils.sortMetaData(metaData);
+	
+	//Save metadata to json file and documentation to markdown files
+	Q.all([
+		utils.saveFileJson(currentExport.output, metaData),	
+		doc.makeReferenceList(currentExport.output, metaData)
+	]).then(function(results) {
+
+		nextExport();
+		
+	});
 }
 
 
@@ -97,8 +217,8 @@ function exportAggregate() {
 		
 	//Do initial dependency export
 	var promises = [
-		dependencyExport('dataSet', currentExport.dataSetIds), 
-		dependencyExport('dashboard', currentExport.dashboardIds),
+		dependencyExport("dataSet", currentExport.dataSetIds), 
+		dependencyExport("dashboard", currentExport.dashboardIds),
 		limitedDependencyExport(currentExport.exportDataSetIds)
 	];
 	Q.all(promises).then(function (results) {
@@ -124,10 +244,6 @@ function exportAggregate() {
 				predictors()
 			];
 			Q.all(promises).then(function (results) {
-				if (debug) {
-					console.log("Content after export:");
-					metaDataObjects();
-				}
 				
 				processAggregate();
 			
@@ -142,37 +258,70 @@ function exportAggregate() {
 }
 
 
-
 /**
  * Verify, modify and save aggregate package
  */
 function processAggregate() {
 
-	//Verify that all data elements referred in indicators, validation rules,
-	//predictors are included
-	if (!validateDataElementReference()) cancelCurrentExport();
+	var success = true;
+	console.log("Validating exported metadata");
 	
-	//Verify that there are no un-referenced data elements or indicators in groups
-	
-	
-	//Verify that there are no data elements or indicators without groups
-	
-	
-	console.log("Validation of " + currentExport.name + " passed, ready for modifications");
-	
-	
+	//Remove ownership
+	removeOwnership();
+		
 	//Make sure the "default defaults"" are used
 	setDefaultUid();
+	
+	//Verify that all data elements referred in indicators, validation rules,
+	//predictors are included
+	if (!validateDataElementReference()) success = false;
 
-	//Verify and modify data element and indicator group references
-	//updateGroupReferences();
+	//Remove invalid references to data elements or indicators from groups
+	//Verify that there are no data elements or indicators without groups
+	if (!validateGroupReferences()) success = false;	
 	
+	//Verify that favourites only use relative orgunits
+	if (!validateFavoriteOrgunits()) success = false;
 	
-	console.log("Ready to save " + currentExport.name);
+	//Verify that favourites only use indicators
+	if (!validateFavoriteDataItems()) success = false;
 	
+	//Verify that no unsupported data dimensions are used
+	if (!validateFavoriteDataDimension()) success = false;
+
 	
-	
+	if (success) {
+		console.log("Ready to save " + currentExport.name);
+		saveAggregate();
+	}
+	else {
+		cancelCurrentExport();
+	}
 }
+
+
+
+
+/**
+ * Save aggregate package
+ */
+function saveAggregate() {
+
+	//Sort the content of our package
+	metaData = utils.sortMetaData(metaData);
+	
+	//Save metadata to json file and documentation to markdown files
+	Q.all([
+		utils.saveFileJson(currentExport.output, metaData),	
+		doc.makeReferenceList(currentExport.output, metaData)
+	]).then(function(results) {
+
+		nextExport();
+		
+	});
+}
+
+
 
 
 /** 
@@ -199,7 +348,7 @@ function saveObject(type, ids) {
 }
 
  
- //Get multiple objects with dependencies
+//Get multiple objects with dependencies
 function dependencyExport(type, ids) {
 	var deferred = Q.defer();
 
@@ -207,17 +356,17 @@ function dependencyExport(type, ids) {
 	for (var id of ids) {
 		
 		switch (type) {
-			case "dataSet": 
-				promises.push(d2.get("/api/dataSets/" + id + 
+		case "dataSet": 
+			promises.push(d2.get("/api/dataSets/" + id + 
 					"/metadata.json?attachment=metadataDependency.json"));
-				break;
-			case "dashboard": 
-				promises.push(d2.get("/api/dashboards/" + id + 
+			break;
+		case "dashboard": 
+			promises.push(d2.get("/api/dashboards/" + id + 
 					"/metadata.json?attachment=metadataDependency.json"));
-				break;
-			default:
-				console.log("Unknown object for dependency export: " + type);
-				deferred.reject(false);
+			break;
+		default:
+			console.log("Unknown object for dependency export: " + type);
+			deferred.reject(false);
 		}
 	}
 	
@@ -276,7 +425,7 @@ function indicators() {
 	//Indicators from favorites
 	var types = ["charts", "mapViews", "reportTables"], ids = [];
 	for (var k = 0; k < types.length; k++) {
-		for (var i = 0; i < metaData[types[k]].length; i++) {
+		for (var i = 0; metaData.hasOwnProperty(types[k]) && i < metaData[types[k]].length; i++) {
 			for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
 				if (metaData[types[k]][i].dataDimensionItems[j].dataDimensionItemType === "INDICATOR") {
 					ids.push(metaData[types[k]][i].dataDimensionItems[j].indicator.id);
@@ -285,7 +434,7 @@ function indicators() {
 		}
 	}
 	
-	return saveObject("indicators", ids)
+	return saveObject("indicators", ids);
 }
 
 
@@ -304,38 +453,22 @@ function indicatorTypes() {
 function categoryOptionGroupSetStructure() {
 	var deferred = Q.defer();
 
-	
-	var item, ids = [];
-	for (var i = 0; i < metaData["charts"].length; i++) {
-		item = metaData["charts"][i];
-
-
-		if (item.series.length > 2) ids.push(item.series);
-		if (item.category.length > 2) ids.push(item.category);
-
-		for (var j = 0; j < item.filterDimensions.length; j++) {
-			if (item.filterDimensions[j].length > 2) ids.push(item.filterDimensions[j]);
-		}
-	}
-	for (var i = 0; i < metaData["reportTables"].length; i++) {
-		item = metaData["reportTables"][i];
-
-
-		for (var j = 0; j < item.columnDimensions.length; j++) {
-			if (item.columnDimensions[j].length > 2) ids.push(item.columnDimensions[j]);
-		}
-		for (var j = 0; j < item.rowDimensions.length; j++) {
-			if (item.rowDimensions[j].length > 2) ids.push(item.rowDimensions[j]);
-		}
-		for (var j = 0; j < item.filterDimensions.length; j++) {
-			if (item.filterDimensions[j].length > 2) ids.push(item.filterDimensions[j]);
-		}
+	var ids = [];
+	for (var type of ["charts", "mapViews", "reportTables"]) {
+		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
+			var item = metaData[type][i];
+			if (item.hasOwnProperty("categoryOptionGroupSetDimensions")) {
+				for (var cogs of item["categoryOptionGroupSetDimensions"]) {
+					ids.push(cogs.categoryOptionGroupSet.id);
+				}
+			}
+		}	
 	}
 
 	var promises = [];
 	promises.push(object("categoryOptionGroupSets", ids));
 	promises.push(d2.get("/api/categoryOptionGroups.json?fields=:owner&filter=groupSets.id:in:[" + 
-		ids.join(',') + "]&paging=false"));
+		ids.join(",") + "]&paging=false"));
 	Q.all(promises).then(function (results) {
 		
 		for (var result of results) {
@@ -359,7 +492,7 @@ function validationRules() {
 	var promises = [], ids = currentExport.validationRuleGroupIds;
 	promises.push(object("validationRuleGroups", ids));
 	promises.push(d2.get("/api/validationRules.json?fields=:owner&filter=validationRuleGroups.id:in:[" + 
-		ids.join(',') + "]&paging=false"));
+		ids.join(",") + "]&paging=false"));
 	Q.all(promises).then(function (results) {
 		
 		for (var result of results) {
@@ -400,9 +533,9 @@ function legendSets() {
 	
 	//LegendSets from applicable object types
 	var types = ["charts", "mapViews", "reportTables", "dataSets", 
-		"dataElements", "indicators"], ids = [];
+			"dataElements", "indicators"], ids = [];
 	for (var k = 0; k < types.length; k++) {
-		for (var i = 0; metaData[types[k]] && i < metaData[types[k]].length; i++) {
+		for (var i = 0; metaData.hasOwnProperty(types[k]) && i < metaData[types[k]].length; i++) {
 			var obj = metaData[types[k]][i];
 			if (obj.hasOwnProperty("legendSet")) ids.push(obj.legendSet.id);
 			if (obj.hasOwnProperty("legendSets")) {
@@ -471,195 +604,6 @@ function clearCategoryOptionGroups() {
 }
 
 
-//Clear predictor formulas
-function clearPredictors() {
-	for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
-		metaData.predictors[i].generator.expression = "-1";
-		metaData.predictors[i].organisationUnitLevels = [];
-		metaData.predictors[i].output.id = null;
-		metaData.predictors[i].outputCombo = null;
-	}
-}
-
-
-//Deduplicate categoryOptionGroups
-function dedupeCategoryOptionGroups() {
-
-	var deduped = [];
-	var seen = {};
-
-	var id;
-	for (var i = 0 ; metaData.categoryOptionGroups && i < metaData.categoryOptionGroups.length; i++) {
-		id = metaData.categoryOptionGroups[i].id + metaData.categoryOptionGroups[i].categoryOptionGroupSet.id;
-		if (!seen[id]) {
-			seen[id] = true;
-			deduped.push(metaData.categoryOptionGroups[i]);
-		}
-	}
-
-	metaData.categoryOptionGroups = deduped;
-}
-
-
-//Modify favorites, removing/warning about unsupported data disaggregations
-function flattenFavorites() {
-
-
-	for (var i = 0; metaData.charts && i < metaData.charts.length; i++) {
-		var chart = metaData.charts[i];
-		var itemID = chart.id;
-		var message = "";
-		for (var j = 0; j < chart.categoryDimensions.length; j++) {
-			var dec = chart.categoryDimensions[j].dataElementCategory.id;
-			message += "* Add " + categoryName(dec) + " as ";
-			message += (chart.category === dec ? "category" : "series") + " dimension. \n";
-
-			//Need to temporarily add other dimensions (from filter) as category/series to make sure it is valid
-			var placeholderDim = chart.filterDimensions.pop();
-			if (chart.category === dec) chart.category = placeholderDim;
-			else chart.series = placeholderDim;
-		}
-		if (chart.categoryDimensions.length > 0) {
-
-			if (!favoriteModifications[itemID]) favoriteModifications[itemID] = { "category": true, message: ""};
-			favoriteModifications[itemID].category = true;
-			favoriteModifications[itemID].message += message;
-
-			chart.categoryDimensions = [];
-		}
-
-		if (chart.categoryOptionGroups.length > 0) console.log("INFO: chart " + chart.name + " (" + chart.id + ") uses categoryOptionGroups");
-		if (chart.dataElementGroups.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses dataElementGroups");
-	}
-
-
-	for (var i = 0; metaData.reportTables && i < metaData.reportTables.length; i++) {
-		var reportTable = metaData.reportTables[i];
-		var itemID = reportTable.id;
-		var message = "";
-		for (var j = 0; j < reportTable.categoryDimensions.length; j++) {
-			var dec = reportTable.categoryDimensions[j].dataElementCategory.id;
-
-			for (var k = 0; k < reportTable.columnDimensions.lenght; k++) {
-				if (reportTable.columnDimensions[k] === dec) {
-					message += "* Add " + categoryName(dec) + " as column dimension. \n";
-
-					//remove dimension
-					reportTable.columnDimensions.splice(k, 1);
-
-					if (reportTable.columnDimensions.length === 0) {
-						reportTable.columnDimensions.push(reportTable.filterDimensions.pop());
-					}
-
-
-				}
-			}
-
-			for (var k = 0; k < reportTable.rowDimensions.lenght; k++) {
-				if (reportTable.rowDimensions[k] === dec) {
-					message += "* Add " + categoryName(dec) + " as row dimension. \n";
-
-					//remove dimension
-					reportTable.rowDimensions.splice(k, 1);
-
-					if (reportTable.rowDimensions.length === 0) {
-						reportTable.rowDimensions.push(reportTable.filterDimensions.pop());
-					}
-				}
-			}
-		}
-		if (reportTable.categoryDimensions.length > 0) {
-
-			if (!favoriteModifications[itemID]) favoriteModifications[itemID] = { "category": true, message: ""};
-			favoriteModifications[itemID].category = true;
-			favoriteModifications[itemID].message += message;
-
-			reportTable.categoryDimensions = [];
-		}
-
-
-		if (reportTable.categoryOptionGroups.length > 0) console.log("INFO: reportTable " + reportTable.name + " (" + reportTable.id + ") uses categoryOptionGroups");
-		if (reportTable.dataElementGroups.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses dataElementGroups");
-	}
-}
-
-
-//Transform all data elements, data element operands and reporting rates in favorites to indicators, and update favorites accordingly //TODO: only data sets
-function favoriteDataDimensionItemsToIndicators() {
-	if (!metaData.indicators) metaData.indicators = [];
-
-	//Data elements from favorites
-	var types = ["charts", "mapViews", "reportTables"];
-	for (var k = 0; k < types.length; k++) {
-		for (var i = 0; i < metaData[types[k]].length; i++) {
-			for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
-				var indicator = null, dimItem = metaData[types[k]][i].dataDimensionItems[j];
-
-				var itemID = metaData[types[k]][i].id;
-
-
-				if (dimItem.dataDimensionItemType === "DATA_ELEMENT") {
-					indicator = dataElementToIndicator(dimItem.dataElement.id);
-				}
-				else if (dimItem.dataDimensionItemType === "DATA_ELEMENT_OPERAND") {
-					indicator = dataElementOperandToIndicator(dimItem.dataElementOperand.dataElement.id, dimItem.dataElementOperand.categoryOptionCombo.id);
-				}
-				else if (dimItem.dataDimensionItemType === "REPORTING_RATE") {
-					indicator = dataSetToIndicator(dimItem.reportingRate);
-					if (!favoriteModifications[itemID]) favoriteModifications[itemID] = { "dataSet": true, message: ""};
-					favoriteModifications[itemID].dataSet = true;
-					favoriteModifications[itemID].message += "* Insert dataset completeness " + indicator.name + "\n";
-				}
-				else if (dimItem.dataDimensionItemType != "INDICATOR") {
-					console.log("ERROR: Unsupported data dimension item type in " + types[k] + " with ID " + metaData[types[k]][i].id);
-				}
-
-				if (indicator) {
-
-					//Check if it already exists
-					var found = false;
-					for (var l = 0; !false && l < metaData.indicators.length; l++) {
-						if (indicator.id === metaData.indicators[l].id) found = true;
-					}
-					if (!found)	metaData.indicators.push(indicator);
-
-
-					metaData[types[k]][i].dataDimensionItems[j] = {
-						"dataDimensionItemType": "INDICATOR",
-						"indicator": {
-							"id": indicator.id
-						}
-					};
-				}
-			}
-		}
-	}
-}
-
-
-//Transform data set to indicator
-function dataSetToIndicator(reportingRate) {
-	//TODO: Need to fetch dataset to get translation
-	var indicator = {
-		"id": reportingRate.id,
-		"code": reportingRate.code ? reportingRate.code : null,
-		"name": reportingRate.name,
-		"shortName": reportingRate.shortName,
-		"description": "[MODIFICATION: REPLACE WITH DATASET COMPLETENESS IN FAVORITES]",
-		"indicatorType": {"id": numberIndicatorType()},
-		"numerator": "-1",
-		"denominator": "1",
-		"numeratorDescription": "COMPLETENESS " + reportingRate.name,
-		"denominatorDescription": "1",
-		"lastUpdated": null, //TODO
-		"annualized": false,
-		"publicAccess": currentExport.publicAccess
-	};
-
-	return indicator;
-}
-
-
 //Remove "user", "userGroupAccesses" for applicable objects, set publicaccess according to configuration.json
 function removeOwnership() {
 	for (var objectType in metaData) {
@@ -669,147 +613,6 @@ function removeOwnership() {
 			if (obj[j].hasOwnProperty("userGroupAccesses")) delete obj[j].userGroupAccesses;
 			if (obj[j].hasOwnProperty("publicAccess")) obj[j].publicAccess = currentExport.publicAccess;
 
-		}
-	}
-}
-
-
-//Returns number indicator type, adds new if it does not exist
-function numberIndicatorType() {
-
-	for (var i = 0; metaData.indicatorTypes && i < metaData.indicatorTypes.length; i++) {
-		if (metaData.indicatorTypes[i].number) return metaData.indicatorTypes[i].id;
-	}
-
-	if (!metaData.indicatorTypes) metaData.indicatorTypes = [];
-	var template = {
-		"factor": 1,
-		"id": "kHy61PbChXr",
-		"name":	"Numerator only",
-		"number": true,
-		"translations": [
-			{
-				"locale": "fr",
-				"property":	"NAME",
-				"value": "Numérateur seulement"
-			}
-		]
-	};
-
-	metaData.indicatorTypes.push(template);
-	return template.id;
-}
-
-
-//Remove data element and indicator membership where members are not in export,
-//and add new groups with data elements and indicators not currently grouped
-function updateGroupReferences() {
-
-
-	//data element group membership
-	var grouped = {};
-	for (var i = 0; metaData.dataElementGroups && i < metaData.dataElementGroups.length; i++) {
-		var group = metaData.dataElementGroups[i];
-		var validMembers = [];
-		
-		for (var j = 0; j < group.dataElements.length; j++) {
-			var item = group.dataElements[j];
-
-			var found = false;
-			for (var k = 0; !found && metaData.dataElements && k < metaData.dataElements.length; k++) {
-				if (item.id === metaData.dataElements[k].id) {
-					found = true;
-				}
-			}
-
-			if (found) {
-				validMembers.push(item);
-				grouped[item.id] = true;
-			}
-		}
-		metaData.dataElementGroups[i].dataElements = validMembers;
-		delete metaData.dataElementGroups[i].dataElementGroupSet;
-	}
-	var unGrouped = [];
-	for (var i = 0; metaData.dataElements && i < metaData.dataElements.length; i++) {
-		if (!grouped.hasOwnProperty(metaData.dataElements[i].id)) {
-			unGrouped.push({"id": metaData.dataElements[i].id});
-		}
-	}
-	if (unGrouped.length > 0 && currentExport.type != "dashboardAggregate") {
-		if (!metaData.dataElementGroups) metaData.dataElementGroups = [];
-		metaData.dataElementGroups.push({
-			"name": "[Other data elements] " + currentExport.name,
-			"id": uids.pop(),
-			"publicAccess": currentExport.publicAccess,
-			"dataElements": unGrouped,
-			"lastUpdated": new Date().toISOString()
-		});
-	}
-
-	//indicator group membership
-	grouped = {};
-	for (var i = 0; metaData.indicatorGroups && i < metaData.indicatorGroups.length; i++) {
-		var group = metaData.indicatorGroups[i];
-		var validMembers = [];
-
-		for (var j = 0; j < group.indicators.length; j++) {
-			var item = group.indicators[j];
-
-
-
-			var found = false;
-			for (var k = 0; !found && metaData.indicators && k < metaData.indicators.length; k++) {
-				if (item.id === metaData.indicators[k].id) {
-					found = true;
-				}
-			}
-
-			if (found) {
-				validMembers.push(item);
-				grouped[item.id] = true;
-			}
-		}
-		metaData.indicatorGroups[i].indicators = validMembers;
-		delete metaData.indicatorGroups[i].indicatorGroupSet;
-	}
-
-	var unGrouped = [];
-	for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
-		if (!grouped.hasOwnProperty(metaData.indicators[i].id)) {
-			unGrouped.push({"id": metaData.indicators[i].id});
-		}
-	}
-	
-	if (unGrouped.length > 0) {
-		if (!metaData.indicatorGroups) metaData.indicatorGroups = [];
-		metaData.indicatorGroups.push({
-			"name": currentExport.type != "dashboardAggregate" ? "[Other indicators] " + currentExport.name : currentExport.name,
-			"id": uids.pop(),
-			"publicAccess": currentExport.publicAccess,
-			"indicators": unGrouped,
-			"lastUpdated": new Date().toISOString()
-		});
-	}
-
-	return;
-}
-
-
-//Add instructions to favorites on necessary modifications
-function favoriteModificationInstructions() {
-
-	var types = ["charts", "maps", "reportTables"];
-	for (var k = 0; k < types.length; k++) {
-		for (var i = 0; i < metaData[types[k]].length; i++) {
-			var list = metaData[types[k]];
-			for (var i = 0; list && i < list.length; i++) {
-				var item = list[i];
-				if (favoriteModifications[item.id]) {
-					var description = "[MODIFY]: \n"+ favoriteModifications[item.id].message + " [END]\n\n " + (item.description ? item.description : "");
-					metaData[types[k]][i].description = description;
-				}
-			}
 		}
 	}
 }
@@ -827,64 +630,180 @@ function prefixIndicators() {
 /** VALIDATION FUNCTIONS **/
 
 //Check for hardcoded orgunits in favorites (mapViews, reportTables, charts), print warning
-function verifyFavoriteOrgunits() {
+function validateFavoriteOrgunits() {
 
-	//Consider replacing by "user orgunit children or similar"
-	for (var i = 0; metaData.charts && i < metaData.charts.length; i++) {
-		var chart = metaData.charts[i];
-		if (chart.organisationUnits.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses fixed orgunits");
-		if (chart.organisationUnitLevels.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses orgunit levels");
-		if (chart.organisationUnitGroups.length > 0) console.log("ERROR: chart " + chart.name + " (" + chart.id + ") uses orgunit groups");
-	}
-	for (var i = 0; metaData.reportTables && i < metaData.reportTables.length; i++) {
-		var reportTable = metaData.reportTables[i];
-		if (reportTable.organisationUnits.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses fixed orgunits");
-		if (reportTable.organisationUnitLevels.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses orgunit levels");
-		if (reportTable.organisationUnitGroups.length > 0) console.log("ERROR: reportTable " + reportTable.name + " (" + reportTable.id + ") uses orgunit groups");
-	}
-	var mapViewIssues = [];
-	for (var i = 0; metaData.mapViews && i < metaData.mapViews.length; i++) {
-		var mapView = metaData.mapViews[i];
-		if (mapView.organisationUnits.length > 0) {
-			console.log("mapView " + mapView.id + " uses fixed orgunits");
-			mapViewIssues.push(mapView.id);
+	var issues = [];
+	for (var type of ["charts", "mapViews", "reportTables"]) {
+		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
+			var item = metaData[type][i];
+			var nameableItem = (type == "mapViews") ? mapFromMapView(item.id) : item;
+			if (item.organisationUnits.length > 0) {
+				issues.push({
+					"id": nameableItem.id,
+					"name": nameableItem.name,
+					"type": type,
+					"error": "fixed orgunits"
+				});
+			}
+			if (item.organisationUnitLevels.length > 0) {
+				issues.push({
+					"id": nameableItem.id,
+					"name": nameableItem.name,
+					"type": type,
+					"error": "orgunit levels"
+				});
+			}
+			if (item.itemOrganisationUnitGroups.length > 0) {
+				issues.push({
+					"id": nameableItem.id,
+					"name": nameableItem.name,
+					"type": type,
+					"error": "orgunit groups"
+				});
+			}
 		}
-		if (mapView.organisationUnitLevels.length > 0) {
-			console.log("mapView " + mapView.id + " uses orgunit levels");
+	}
+	
+	if (issues.length > 0) {
+		console.log("\n*** ERROR ***");
+		console.log("Invalid orgunit parameters in favourites:");
+		
+		var printed = {};
+		for (var issue of issues) {
+			if (!printed[issue.id + issue.error]) {
+				console.log(issue.type + ": " + issue.id + " - '" + issue.name + 
+					"': " + issue.error);
+				printed[issue.id + issue.error] = true;
+			}
 		}
+		console.log("");
+		return false;
 	}
-	if (mapViewIssues.length > 0) {
-		d2.get("/api/maps.json?fields=name,id&paging=false&filter=mapViews.id:in:[" + mapViewIssues.join(",") + "]").then(function(data) {
-			console.log(data);
-		});
-	}
+	else return true;
 }
 
 
-//Check if favourites or indicator formulas references data elements that are not
-//part of the export
-function validateDataElementReference() {
-	var ids = {};
+//Verify that only indicators are used in favourites
+function validateFavoriteDataItems() {
+	//Data elements from favorites
+	var issues = [];
+	for (var type of ["charts", "mapViews", "reportTables"]) {
+		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
+			var item = metaData[type][i];
+			for (var dimItem of item.dataDimensionItems) {
 
-	//Data elements from favourites
-	var types = ["charts", "mapViews", "reportTables"];
-	for (var k = 0; k < types.length; k++) {
-		for (var i = 0; i < metaData[types[k]].length; i++) {
-			for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
-				var dimItem = metaData[types[k]][i].dataDimensionItems[j];
-				if (dimItem.dataDimensionItemType === "DATA_ELEMENT") {
-					ids[dimItem.dataElement.id] = types[k];
-				}
-				else if (dimItem.dataDimensionItemType === "DATA_ELEMENT_OPERAND") {
-					ids[dimItem.dataElementOperand.dataElement.id] = types[k];
+				if (dimItem.dataDimensionItemType != "INDICATOR") {
+					var nameableItem = (type == "mapViews") ? 
+						mapFromMapView(item.id) : item;
+					
+					issues.push({
+						"id": nameableItem.id,
+						"name": nameableItem.name,
+						"type": type,
+						"error": dimItem.dataDimensionItemType
+					});
 				}
 			}
 		}
 	}
+	
+	if (issues.length > 0) {	
+		console.log("\n*** ERROR ***");
+		console.log("Favourites not using indicators only:");
+		
+		var printed = {};
+		for (var issue of issues) {
+			if (!printed[issue.id + issue.error]) {
+				console.log(issue.type + ": " + issue.id + " - '" + issue.name + 
+					"': " + issue.error);
+				printed[issue.id + issue.error] = true;
+			}
+			
+		}
+		console.log("");
+		return false;
+	}
+	else return true;
+}
+
+
+//Check that not unsupported (data element group sets, orgunit group sets, 
+//category) dimensions are used in favourites
+function validateFavoriteDataDimension() {
+	
+	var issues = [];
+	for (var type of ["charts", "mapViews", "reportTables"]) {
+		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
+			var item = metaData[type][i];
+			var nameableItem;
+			if (item.hasOwnProperty("dataElementGroupSetDimensions") 
+					&& item.dataElementGroupSetDimensions.length > 0) {
+				nameableItem = (type == "mapViews") ? 
+					mapFromMapView(item.id) : item;
+				
+				issues.push({
+					"id": nameableItem.id,
+					"name": nameableItem.name,
+					"type": type,
+					"error": "dataElementGroupSet"
+				});
+			}
+			if (item.hasOwnProperty("organisationUnitGroupSetDimensions") 
+					&& item.organisationUnitGroupSetDimensions.length > 0) {
+				nameableItem = (type == "mapViews") ? 
+					mapFromMapView(item.id) : item;
+				
+				issues.push({
+					"id": nameableItem.id,
+					"name": nameableItem.name,
+					"type": type,
+					"error": "organisationUnitGroupSet"
+				});
+			}
+			if (item.hasOwnProperty("categoryDimensions") 
+					&& item.categoryDimensions.length > 0) {
+				nameableItem = (type == "mapViews") ? 
+					mapFromMapView(item.id) : item;
+				
+				issues.push({
+					"id": nameableItem.id,
+					"name": nameableItem.name,
+					"type": type,
+					"error": "category"
+				});
+			}
+		}
+	}
+
+	if (issues.length > 0) {	
+		console.log("\n*** ERROR ***");
+		console.log("Favourites using unsupported data dimension:");
+		
+		var printed = {};
+		for (var issue of issues) {
+			if (!printed[issue.id + issue.error]) {
+				console.log(issue.type + ": " + issue.id + " - '" + issue.name + 
+					"': " + issue.error);
+				printed[issue.id + issue.error] = true;
+			}
+		}
+		console.log("");
+		return false;
+	}
+	else return true;
+}
+
+
+//Check if predictor or indicator formulas references data elements that are not
+//part of the export
+function validateDataElementReference() {
+	var ids = {};
+
 
 	//Data elements from indicator formulas
+	var result;
 	for (var i = 0; i < metaData.indicators.length; i++) {
-		var result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator, 
+		result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator, 
 			metaData.indicators[i].denominator, true);
 			
 		for (var j = 0; j < result.length; j++) {
@@ -894,7 +813,7 @@ function validateDataElementReference() {
 	
 	//Data elements from predictor formulas
 	for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
-		var result = utils.idsFromFormula(
+		result = utils.idsFromFormula(
 			metaData.predictors[i].generator.expression, 
 			true
 		);
@@ -906,7 +825,7 @@ function validateDataElementReference() {
 	
 	//Data elements from validation rule formulas
 	for (var i = 0; metaData.validationRules && i < metaData.validationRules.length; i++) {
-		var result = utils.idsFromFormula(
+		result = utils.idsFromFormula(
 			metaData.validationRules[i].leftSide.expression, 
 			true
 		);
@@ -928,18 +847,101 @@ function validateDataElementReference() {
 	var missing = [];
 	for (var id in ids) {
 		if (!objectExists("dataElements", id)) {
-			missing.push({'id': id, 'type': ids[id]});
+			missing.push({"id": id, "type": ids[id]});
 		}
 	}
 	
 	if (missing.length > 0) {
 		console.log("\n*** ERROR ***");
-		console.log("Data elements referenced, but not included in export:")
+		console.log("Data elements referenced, but not included in export:");
 		for (var issue of missing) {
 			console.log(issue.id + " referenced in " + issue.type);
 		}
 		console.log("");
 		return false;
+	}
+	else return true;
+}
+
+
+//Remove data element and indicator membership where members are not in export,
+//and add new groups with data elements and indicators not currently grouped
+function validateGroupReferences() {
+
+
+	//data element group membership
+	var item, group, grouped = {}, unGrouped = [], validMembers = [], found = false;
+	for (var i = 0; metaData.dataElementGroups && i < metaData.dataElementGroups.length; i++) {
+		group = metaData.dataElementGroups[i];
+		for (var j = 0; j < group.dataElements.length; j++) {
+			item = group.dataElements[j];
+			found = false;
+			for (var k = 0; !found && metaData.dataElements && k < metaData.dataElements.length; k++) {
+				if (item.id === metaData.dataElements[k].id) {
+					found = true;
+				}
+			}
+
+			if (found) {
+				validMembers.push(item);
+				grouped[item.id] = true;
+			}
+		}
+		metaData.dataElementGroups[i].dataElements = validMembers;
+		delete metaData.dataElementGroups[i].dataElementGroupSet;
+	}
+	for (var i = 0; metaData.dataElements && i < metaData.dataElements.length; i++) {
+		if (!grouped.hasOwnProperty(metaData.dataElements[i].id)) {
+			unGrouped.push({
+				"id": metaData.dataElements[i].id,
+				"name": metaData.dataElements[i].shortName,
+				"type": "dataElements"
+			});
+		}
+	}
+
+
+	//indicator group membership
+	grouped = {}, validMembers = [];
+	for (var i = 0; metaData.indicatorGroups && i < metaData.indicatorGroups.length; i++) {
+		group = metaData.indicatorGroups[i];
+
+		for (var j = 0; j < group.indicators.length; j++) {
+			item = group.indicators[j];
+			found = false;
+			for (var k = 0; !found && metaData.indicators && k < metaData.indicators.length; k++) {
+				if (item.id === metaData.indicators[k].id) {
+					found = true;
+				}
+			}
+
+			if (found) {
+				validMembers.push(item);
+				grouped[item.id] = true;
+			}
+		}
+		metaData.indicatorGroups[i].indicators = validMembers;
+		delete metaData.indicatorGroups[i].indicatorGroupSet;
+	}
+
+	for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
+		if (!grouped.hasOwnProperty(metaData.indicators[i].id)) {
+			unGrouped.push({
+				"id": metaData.indicators[i].id,
+				"name": metaData.indicators[i].shortName,
+				"type": "indicators"
+			});
+		}
+	}
+	
+	if (unGrouped.length > 0) {
+		console.log("\n*** ERROR ***");
+		console.log("Data elements/indicators referenced, but not in any groups:");
+		for (var issue of unGrouped) {
+			console.log(issue.type + " - " + issue.id + " - " 
+				+ issue.name);
+		}
+		console.log("");
 	}
 	else return true;
 }
@@ -981,11 +983,14 @@ function objectExists(type, id) {
 }
 
 
-//Get name of category with the given ID
-function categoryName(id) {
-	for (var i = 0; metaData.categories && metaData.categories && i < metaData.categories.length; i++) {
-		if (metaData.categories[i].id === id) return metaData.categories[i].name;
+//Get map from mapview
+function mapFromMapView(mapViewId) {
+	for (var map of metaData.maps) {
+	
+		for (var mv of map.mapViews) {
+			if (mv.id === mapViewId) return map;
+		}
 	}
-
-	return "ERROR";
+	return null;
 }
+
