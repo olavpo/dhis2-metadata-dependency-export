@@ -5,7 +5,7 @@ var Q = require('q');
 var utils = require('./utils.js');
 
 module.exports.makeReferenceList = makeReferenceList;
-module.exports.makeIndicatorChecklist = makeIndicatorChecklist;
+module.exports.makeConfigurationChecklist = makeConfigurationChecklist;
 
 
 //Read metadata and make a Table of Content in markdown format
@@ -629,7 +629,7 @@ function makeReferenceList(fileName, metaData) {
 
 
 //Read metadata and make checklist for indicator availability in markdown format
-function makeIndicatorChecklist(fileName, metaData) {
+function makeConfigurationChecklist(fileName, metaData) {
 	var deferred = Q.defer();
 
 	var content = "# Configuration checklist\n";
@@ -639,23 +639,23 @@ function makeIndicatorChecklist(fileName, metaData) {
 	//indicators
 	if (metaData.indicators && metaData.indicators.length > 0) {
 		table = [];
-		table.push(["Name", "Replace", "Config", "Remove"]);
+		table.push(["Name", "Configured"]);
 
 		var ind, type;
 		for (var i = 0; i < metaData.indicators.length; i++) {
 			ind = metaData.indicators[i];
 
-			table.push([ind.name, "▢", "▢", "▢"]);
+			table.push([ind.name, "▢"]);
 		}
 
 		content += "\n## Indicators \n";
-		content += utils.htmlTableFromArray(table, true, [70, 10, 10, 10], ["left", "center", "center", "center"]);
+		content += utils.htmlTableFromArray(table, true, [80, 20], ["left", "center"]);
 	}
 
 	//category option group sets
 	if (metaData.categoryOptionGroups && metaData.categoryOptionGroups.length > 0) {
 		table = [];
-		table.push(["Name", "Config"]);
+		table.push(["Name", "Configured"]);
 
 		var cog, type;
 		for (var i = 0; i < metaData.categoryOptionGroups.length; i++) {
@@ -665,59 +665,11 @@ function makeIndicatorChecklist(fileName, metaData) {
 		}
 
 		content += "\n## Category Option Groups \n";
-		content += utils.htmlTableFromArray(table, true, [90, 10], ["left", "center"]);
-	}
-
-	var types = ["charts", "maps", "reportTables"];
-	for (var k = 0; k < types.length; k++) {
-		for (var i = 0; i < metaData[types[k]].length; i++) {
-
-			var list = metaData[types[k]];
-			if (list && list.length > 0) {
-				var title;
-				switch (types[k]) {
-				case "charts":
-					title = "Data Visualizer favourites";
-					break;
-				case "maps":
-					title = "GIS favourites";
-					break;
-				case "reportTables":
-					title = "Pivot Table favourites";
-					break;
-				}
-
-				table = [];
-				table.push(["Name", "Action", "Description", "Done", "Remove"]);
-
-				for (var i = 0; i < list.length; i++) {
-					var item = list[i];
-
-					var type = "Review";
-					if (favoriteModifications[item.id]) {
-						if (favoriteModifications[item.id].dataSet && favoriteModifications[item.id].category) {
-							type = "Category, Completeness";
-						}
-						else if (favoriteModifications[item.id].dataSet) {
-							type = "Completeness";
-						}
-						else {
-							type = "Category";
-						}
-					}
-
-					var desc = item.description ? item.description.replace(/\n/g, "<br />") : "";
-					table.push([item.name , type, desc, "▢", "▢"]);
-				}
-
-				content += "\n## " + title + " \n";
-				content += utils.htmlTableFromArray(table, true, [40, 10, 30, 10, 10], ["left", "left", "left", "center", "center"]);
-			}
-		}
+		content += utils.htmlTableFromArray(table, true, [80, 20], ["left", "center"]);
 	}
 
 
-	fs.writeFile(currentExport.output + "_checklist.md", content, function(err) {
+	fs.writeFile(fileName + "_configuration.md", content, function(err) {
 		if(err) {
 			return console.log(err);
 		}

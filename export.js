@@ -104,9 +104,6 @@ function exportDashboard() {
 		];
 		Q.all(promises).then(function (results) {
 
-			//TODO: should we include predictors? Difficult without data elements
-			//the predictor-based thresholds need clear explanation
-
 			//Get legends from data elements, indicators and favourites
 			//Get indicator types from indicators
 			promises = [
@@ -121,8 +118,6 @@ function exportDashboard() {
 			
 		});
 		
-		//Verify that all data elements are included, based on favourites and
-		//indicator formulas
 	});
 				
 }
@@ -140,8 +135,9 @@ function processDashboard() {
 	clearIndicatorFormulas();
 	clearCategoryOptionGroups(); //TODO: consider adding default to "other"
 	
-	//Add prefix to indicators to be mapped //TODO: clearCategoryOptionGroups also?
+	//Add prefix to objects to be mapped
 	prefixIndicators();
+	prefixCategoryOptionGroups();
 	
 	//Remove ownership
 	removeOwnership();
@@ -161,7 +157,6 @@ function processDashboard() {
 	
 	//Verify that no unsupported data dimensions are used
 	if (!validateFavoriteDataDimension()) success = false;
-	
 	
 	
 	if (success) {
@@ -185,7 +180,8 @@ function saveDashboard() {
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
 		utils.saveFileJson(currentExport.output, metaData),	
-		doc.makeReferenceList(currentExport.output, metaData)
+		doc.makeReferenceList(currentExport.output, metaData),
+		doc.makeConfigurationChecklist(currentExport.output, metaData)
 	]).then(function(results) {
 
 		nextExport();
@@ -251,8 +247,6 @@ function exportAggregate() {
 			
 		});
 		
-		//Verify that all data elements are included, based on favourites and
-		//indicator formulas
 	});
 				
 }
@@ -620,8 +614,18 @@ function removeOwnership() {
 
 //Add prefix to indicators
 function prefixIndicators() {
-	for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
-		metaData.indicators[i].name = currentExport.placeHolder + " " + metaData.indicators[i].name;
+	if (!metaData.indicators) return;
+	for (var indicator of metaData.indicators) {
+		indicator.name = currentExport.placeHolder + " " + indicator.name;
+	}
+}
+
+
+//Add prefix to categoryOptionGroups
+function prefixCategoryOptionGroups() {
+	if (!metaData.categoryOptionGroups) return;
+	for (var group of metaData.categoryOptionGroups) {
+		group.name = currentExport.placeHolder + " " + group.name;
 	}
 }
 

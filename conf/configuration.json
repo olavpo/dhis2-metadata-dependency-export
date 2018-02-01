@@ -19,7 +19,7 @@
       ], 
       "name": "Malaria dashboards", 
       "output": "/Users/Olav/Downloads/malaria_dashboard", 
-      "placeHolder": "[WHO]", 
+      "placeHolder": "[CONFIG]", 
       "publicAccess": "r-------", 
       "type": "dashboardAggregate"
     }
