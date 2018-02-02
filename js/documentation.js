@@ -617,10 +617,11 @@ function makeReferenceList(fileName, metaData) {
 
 	fs.writeFile(fileName + "_reference.md", content, function(err) {
 		if(err) {
-			return console.log(err);
+			console.log(err);
+			deferred.resolve(false);
 		}
 
-		console.log("Metadata reference saved");
+		console.log("✔ Reference list saved");
 		deferred.resolve(true);
 	});
 
@@ -672,10 +673,11 @@ function makeConfigurationChecklist(fileName, metaData) {
 
 	fs.writeFile(fileName + "_configuration.md", content, function(err) {
 		if(err) {
-			return console.log(err);
+			console.log(err);
+			deferred.resolve(false);
 		}
 
-		console.log("Configuration checklist saved");
+		console.log("✔ Configuration checklist saved");
 		deferred.resolve(true);
 	});
 
@@ -717,10 +719,11 @@ function makeAvailabilityChecklist(fileName, metaData) {
 
 	fs.writeFile(fileName + "_availability.md", content, function(err) {
 		if(err) {
-			return console.log(err);
+			console.log(err);
+			deferred.resolve(false);
 		}
 
-		console.log("Availability checklist saved");
+		console.log("✔ Availability checklist saved");
 		deferred.resolve(true);
 	});
 

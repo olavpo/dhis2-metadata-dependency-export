@@ -26,7 +26,7 @@ function saveFileJson(fileName, jsonContent) {
 			return console.log(err);
 		}
 
-		console.log("Metadata saved");
+		console.log("✔ Metadata saved");
 		deferred.resolve(true);
 	});
 

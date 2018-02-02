@@ -1,6 +1,7 @@
 "use strict";
 
 var Q = require("q");
+var prompt = require('prompt');
 
 var conf = require("./conf/configuration.json");
 var d2 = require("./js/d2.js");
@@ -18,17 +19,43 @@ process.on("uncaughtException", function (err) {
 	console.log("Caught exception: " + err);
 });
 
+
 run();
 
+
 /**
- * Make a queue of exports to process
+ * Prompt user and password, then make a queue of exports to process
  */
 function run() {
-	for (var i = 0; i < conf.export.length; i++) {
-		exportQueue.push(conf.export[i]);
-	}
-
-	nextExport();
+	
+	prompt.start();
+	
+	var schema = {
+    	properties: {
+      		username: {
+		        required: true
+    	  	},
+			password: {
+        		hidden: true,
+        		required: true
+      		}
+    	}
+	};
+	
+	prompt.get(schema, function (err, result) {    	
+    	d2.authentication(result.username, result.password);
+    	
+    	d2.get("/api/system/info.json").then(function(result) {
+    		console.log("\nConnected to instance: " + result.systemName);
+    		console.log("DHIS2 version: " + result.version);
+    		
+    		for (var i = 0; i < conf.export.length; i++) {
+				exportQueue.push(conf.export[i]);
+			}
+	
+			nextExport();
+    	});
+	});  	
 }
 
 
@@ -40,13 +67,12 @@ function nextExport() {
 
 	currentExport = exportQueue.pop();
 	if (!currentExport) {
-		console.log("All exports done!");
+		console.log("\nAll exports done!\n");
 		return;
 	}
 	else {
 		exporting = true;
-		console.log("Exporting " + currentExport.name + ". " + exportQueue.length + 
-			" remaining after this");
+		console.log("\nExporting " + currentExport.name);
 	}
 
 	metaData = {};
@@ -62,7 +88,7 @@ function nextExport() {
 
 
 function cancelCurrentExport() {
-	console.log("\nCancelling export '" + currentExport.name + "' due to errors.\n");
+	console.log("\n✘ Cancelling export '" + currentExport.name + "' due to errors.\n");
 	exporting = false;
 	nextExport();
 }
@@ -142,7 +168,7 @@ function processDashboard() {
 	//Remove ownership
 	removeOwnership();
 	
-	//Make sure the "default defaults"" are used
+	//Make sure the "default defaults" are used
 	setDefaultUid();
 
 	//Remove invalid references to data elements or indicators from groups
@@ -160,7 +186,8 @@ function processDashboard() {
 	
 	
 	if (success) {
-		console.log("Ready to save " + currentExport.name);
+		console.log("✔ Validation passed");
+		// + currentExport.name);
 		saveDashboard();
 	}
 	else {
@@ -184,7 +211,7 @@ function saveDashboard() {
 		doc.makeConfigurationChecklist(currentExport.output, metaData),
 		doc.makeAvailabilityChecklist(currentExport.output, metaData),		
 	]).then(function(results) {
-
+		exporting = false;
 		nextExport();
 		
 	});
@@ -290,8 +317,7 @@ function processAggregate() {
 		saveAggregate();
 	}
 	else {
-		//cancelCurrentExport();
-		saveAggregate();
+		cancelCurrentExport();
 	}
 }
 
@@ -312,7 +338,7 @@ function saveAggregate() {
 		doc.makeReferenceList(currentExport.output, metaData),
 		doc.makeAvailabilityChecklist(currentExport.output, metaData)
 	]).then(function(results) {
-
+		exporting = false;
 		nextExport();
 		
 	});
@@ -672,8 +698,7 @@ function validateFavoriteOrgunits() {
 	}
 	
 	if (issues.length > 0) {
-		console.log("\n*** ERROR ***");
-		console.log("Invalid orgunit parameters in favourites:");
+		console.log("\nERROR | Invalid orgunit parameters in favourites:");
 		
 		var printed = {};
 		for (var issue of issues) {
@@ -683,7 +708,6 @@ function validateFavoriteOrgunits() {
 				printed[issue.id + issue.error] = true;
 			}
 		}
-		console.log("");
 		return false;
 	}
 	else return true;
@@ -715,8 +739,7 @@ function validateFavoriteDataItems() {
 	}
 	
 	if (issues.length > 0) {	
-		console.log("\n*** ERROR ***");
-		console.log("Favourites not using indicators only:");
+		console.log("\nERROR | Favourites not using indicators only:");
 		
 		var printed = {};
 		for (var issue of issues) {
@@ -727,7 +750,6 @@ function validateFavoriteDataItems() {
 			}
 			
 		}
-		console.log("");
 		return false;
 	}
 	else return true;
@@ -783,8 +805,7 @@ function validateFavoriteDataDimension() {
 	}
 
 	if (issues.length > 0) {	
-		console.log("\n*** ERROR ***");
-		console.log("Favourites using unsupported data dimension:");
+		console.log("\nERROR | Favourites using unsupported data dimension:");
 		
 		var printed = {};
 		for (var issue of issues) {
@@ -794,7 +815,6 @@ function validateFavoriteDataDimension() {
 				printed[issue.id + issue.error] = true;
 			}
 		}
-		console.log("");
 		return false;
 	}
 	else return true;
@@ -859,12 +879,10 @@ function validateDataElementReference() {
 	}
 	
 	if (missing.length > 0) {
-		console.log("\n*** ERROR ***");
-		console.log("Data elements referenced, but not included in export:");
+		console.log("\nERROR | Data elements referenced, but not included in export:");
 		for (var issue of missing) {
 			console.log(issue.id + " referenced in " + issue.type);
 		}
-		console.log("");
 		return false;
 	}
 	else return true;
@@ -942,13 +960,11 @@ function validateGroupReferences() {
 	}
 	
 	if (unGrouped.length > 0) {
-		console.log("\n*** ERROR ***");
-		console.log("Data elements/indicators referenced, but not in any groups:");
+		console.log("\nERROR | Data elements/indicators referenced, but not in any groups:");
 		for (var issue of unGrouped) {
 			console.log(issue.type + " - " + issue.id + " - " 
 				+ issue.name);
 		}
-		console.log("");
 	}
 	else return true;
 }

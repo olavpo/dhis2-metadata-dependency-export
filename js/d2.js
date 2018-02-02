@@ -8,8 +8,16 @@ module.exports.put = put;
 module.exports.patch = patch;
 module.exports.get = get;
 module.exports.post = post;
+module.exports.authentication = authentication;
 
+var user;
+var password;
 var debug = false;
+
+function authentication(u, p) {
+	user = u;
+	password = p;
+}
 
 
 function post(url, payload) {
@@ -24,8 +32,8 @@ function post(url, payload) {
 		json: true,
 		body: payload,
 		auth: {
-			'user': conf.dhis.user,
-			'pass': conf.dhis.password
+			'user': user,
+			'pass': password
 		}
 	}, function (error, response, data) {
 		if (debug) console.log(data);
@@ -55,8 +63,8 @@ function put(url, payload) {
 		json: true,
 		body: payload,
 		auth: {
-			'user': conf.dhis.user,
-			'pass': conf.dhis.password
+			'user': user,
+			'pass': password
 		}
 	}, function (error, response, data) {
 		if (!error && (response.statusCode >= 200 && response.statusCode < 300)) {
@@ -84,8 +92,8 @@ function patch(url, payload) {
 		json: true,
 		body: payload,
 		auth: {
-			'user': conf.dhis.user,
-			'pass': conf.dhis.password
+			'user': user,
+			'pass': password
 		}
 	}, function (error, response, data) {
 		if (!error && (response.statusCode >= 200 && response.statusCode < 300)) {
@@ -132,8 +140,8 @@ function getNow() {
 		uri: url,
 		json: true,
 		auth: {
-			'user': conf.dhis.user,
-			'pass': conf.dhis.password
+			'user': user,
+			'pass': password
 		},
 		forever: true
 	}, function (error, response, data) {

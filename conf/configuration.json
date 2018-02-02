@@ -1,8 +1,6 @@
 {
   "dhis": {
 	"url": "http://localhost/dhis",
-    "user": "admin",
-    "password": "district"
   }, 
   "export": [
     {
