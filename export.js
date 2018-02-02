@@ -1,7 +1,7 @@
 "use strict";
 
 var Q = require("q");
-var prompt = require('prompt');
+var prompt = require("prompt");
 
 var conf = require("./conf/configuration.json");
 var d2 = require("./js/d2.js");
@@ -11,14 +11,11 @@ var utils = require("./js/utils.js");
 var metaData;
 var exportQueue = [];
 var currentExport;
-
 var exporting = false;
 
-var debug = true;
 process.on("uncaughtException", function (err) {
 	console.log("Caught exception: " + err);
 });
-
 
 run();
 
@@ -31,30 +28,30 @@ function run() {
 	prompt.start();
 	
 	var schema = {
-    	properties: {
-      		username: {
-		        required: true
-    	  	},
+		properties: {
+			username: {
+				required: true
+			},
 			password: {
-        		hidden: true,
-        		required: true
-      		}
-    	}
+				hidden: true,
+				required: true
+			}
+		}
 	};
 	
-	prompt.get(schema, function (err, result) {    	
-    	d2.authentication(result.username, result.password);
-    	
-    	d2.get("/api/system/info.json").then(function(result) {
-    		console.log("\nConnected to instance: " + result.systemName);
-    		console.log("DHIS2 version: " + result.version);
-    		
-    		for (var i = 0; i < conf.export.length; i++) {
+	prompt.get(schema, function (err, result) {		
+		d2.authentication(result.username, result.password);
+		
+		d2.get("/api/system/info.json").then(function(result) {
+			console.log("\nConnected to instance: " + result.systemName);
+			console.log("DHIS2 version: " + result.version);
+			
+			for (var i = 0; i < conf.export.length; i++) {
 				exportQueue.push(conf.export[i]);
 			}
 	
 			nextExport();
-    	});
+		});
 	});  	
 }
 

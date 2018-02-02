@@ -1,8 +1,8 @@
-'use strict';
+"use strict";
 
-var conf = require('../conf/configuration.json');
-var Q = require('q');
-var request = require('request');
+var conf = require("../conf/configuration.json");
+var Q = require("q");
+var request = require("request");
 
 module.exports.put = put;
 module.exports.patch = patch;
@@ -32,8 +32,8 @@ function post(url, payload) {
 		json: true,
 		body: payload,
 		auth: {
-			'user': user,
-			'pass': password
+			"user": user,
+			"pass": password
 		}
 	}, function (error, response, data) {
 		if (debug) console.log(data);
@@ -43,7 +43,7 @@ function post(url, payload) {
 		else {
 			console.log("Error in POST");
 			console.log(data);
-			deferred.reject({'data': data, 'error': error, 'status': response.statusCode});
+			deferred.reject({"data": data, "error": error, "status": response.statusCode});
 		}
 	});
 
@@ -63,8 +63,8 @@ function put(url, payload) {
 		json: true,
 		body: payload,
 		auth: {
-			'user': user,
-			'pass': password
+			"user": user,
+			"pass": password
 		}
 	}, function (error, response, data) {
 		if (!error && (response.statusCode >= 200 && response.statusCode < 300)) {
@@ -72,7 +72,7 @@ function put(url, payload) {
 		}
 		else {
 			console.log("Error in PUT");
-			deferred.reject({'data': data, 'error': error, 'status': response.statusCode});
+			deferred.reject({"data": data, "error": error, "status": response.statusCode});
 		}
 	});
 
@@ -92,8 +92,8 @@ function patch(url, payload) {
 		json: true,
 		body: payload,
 		auth: {
-			'user': user,
-			'pass': password
+			"user": user,
+			"pass": password
 		}
 	}, function (error, response, data) {
 		if (!error && (response.statusCode >= 200 && response.statusCode < 300)) {
@@ -101,7 +101,7 @@ function patch(url, payload) {
 		}
 		else {
 			console.log("Error in PATCH");
-			deferred.reject({'data': data, 'error': error, 'status': response.statusCode});
+			deferred.reject({"data": data, "error": error, "status": response.statusCode});
 		}
 	});
 
@@ -116,7 +116,7 @@ function get(url) {
 
 	if (!getQ) getQ = [];
 
-	getQ.push({ 'url': url, 'deferred': deferred});
+	getQ.push({ "url": url, "deferred": deferred});
 
 	getNow();
 
@@ -140,20 +140,20 @@ function getNow() {
 		uri: url,
 		json: true,
 		auth: {
-			'user': user,
-			'pass': password
+			"user": user,
+			"pass": password
 		},
 		forever: true
 	}, function (error, response, data) {
 		if (!error && (response.statusCode >= 200 && response.statusCode < 300)) {
-			getCurrent.deferred.resolve(data)
+			getCurrent.deferred.resolve(data);
 			getCurrent = null;
 			getNow();
 		}
 		else {
 			console.log("Error in GET");
-			console.log({'data': data, 'error': error, 'status': response});
-			getCurrent.deferred.reject({'data': data, 'error': error, 'status': response});
+			console.log({"data": data, "error": error, "status": response});
+			getCurrent.deferred.reject({"data": data, "error": error, "status": response});
 			getCurrent = null;
 			getNow();
 		}

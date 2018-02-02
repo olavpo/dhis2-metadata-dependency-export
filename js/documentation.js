@@ -1,8 +1,8 @@
-'use strict';
+"use strict";
 
 var fs = require("fs");
-var Q = require('q');
-var utils = require('./utils.js');
+var Q = require("q");
+var utils = require("./utils.js");
 
 module.exports.makeReferenceList = makeReferenceList;
 module.exports.makeConfigurationChecklist = makeConfigurationChecklist;
@@ -581,7 +581,7 @@ function makeReferenceList(fileName, metaData) {
 		
 		content += "\n## Legend Sets\n";
 
-		var legendSet, legend;
+		var legendSet;
 		for (var i = 0; i < metaData.legendSets.length; i++) {
 			legendSet = metaData.legendSets[i];
 
@@ -610,7 +610,7 @@ function makeReferenceList(fileName, metaData) {
 	//already written - but show warning 
 	for (var object in referenced) {
 		if (!referenced[object]) {
-			console.log('Warning: Not included in reference file: ' + object);
+			console.log("Warning: Not included in reference file: " + object);
 		}
 	}
 	
@@ -643,7 +643,7 @@ function makeConfigurationChecklist(fileName, metaData) {
 		table = [];
 		table.push(["Name", "Configured"]);
 
-		var ind, type;
+		var ind;
 		for (var i = 0; i < metaData.indicators.length; i++) {
 			ind = metaData.indicators[i];
 
@@ -659,7 +659,7 @@ function makeConfigurationChecklist(fileName, metaData) {
 		table = [];
 		table.push(["Name", "Configured"]);
 
-		var cog, type;
+		var cog;
 		for (var i = 0; i < metaData.categoryOptionGroups.length; i++) {
 			cog = metaData.categoryOptionGroups[i];
 
@@ -696,7 +696,6 @@ function makeAvailabilityChecklist(fileName, metaData) {
 	if (metaData.dataSets && metaData.dataElements && metaData.dataElements.length > 0) {
 		content += "\n## Data elements \n";
 		
-		var printed = {};
 		for (var ds of metaData.dataSets) {
 			content += "\n### " + ds.name + " \n";
 			content += dataElementAvailabilityTable(dataElements(ds, metaData), metaData);
@@ -732,8 +731,8 @@ function makeAvailabilityChecklist(fileName, metaData) {
 
 
 function dataElementAvailabilityTable(dataElems, metaData) {
-	var content = '<table width="100%"><col width="15%"><col width="70%"><col width="15%" align="center">' +
-					'<tr><th>Code</th><th >Name</th><th>Available</th></tr>';	
+	var content = "<table width=\"100%\"><col width=\"15%\"><col width=\"70%\"><col width=\"15%\" align=\"center\">" +
+					"<tr><th>Code</th><th >Name</th><th>Available</th></tr>";	
 	for (var de of dataElems) {
 		var cats = categories(de, metaData);
 
@@ -746,43 +745,43 @@ function dataElementAvailabilityTable(dataElems, metaData) {
 			}
 		}
 
-		content += '<tr><td rowspan=' + (rows > 2 ? rows : 1) + '>' + (de.code ? de.code : 'N/A') + 
-			'</td><td align="left">' + de.name + '</td><td align="center">▢</td></tr>';
+		content += "<tr><td rowspan=" + (rows > 2 ? rows : 1) + ">" + (de.code ? de.code : "N/A") + 
+			"</td><td align=\"left\">" + de.name + "</td><td align=\"center\">▢</td></tr>";
 	
 		for (var c of cats) {
 			var opts = options(c, metaData);
-			content += '<tr><td><p style="margin: 0px; margin-left: 24px;"><em>' + 
-					c.name + '</em></p></td><td align="center">▢</td></tr>';
+			content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\"><em>" + 
+					c.name + "</em></p></td><td align=\"center\">▢</td></tr>";
 			for (var opt of opts) {
-				content += '<tr><td><p style="margin: 0px; margin-left: 48px;"><em>' + 
-					opt.name + '</em></p></td><td align="center">▢</td></tr>';
+				content += "<tr><td><p style=\"margin: 0px; margin-left: 48px;\"><em>" + 
+					opt.name + "</em></p></td><td align=\"center\">▢</td></tr>";
 			}
 		}
 		if (cats.length > 0) {
-			content += '<tr><td><p style="margin: 0px; margin-left: 24px; margin-bottom: 48px"><em>' + 
-					'Other disaggregations, specify:</em></p></td><td align="center">▢</td></tr>';
+			content += "<tr><td><p style=\"margin: 0px; margin-left: 24px; margin-bottom: 48px\"><em>" + 
+					"Other disaggregations, specify:</em></p></td><td align=\"center\">▢</td></tr>";
 		}
 	}
 
-	content += '</table>';
+	content += "</table>";
 	return content;
 }
 
 
 function indicatorAvailabilityTable(metaData) {
-	var content = '<table width="100%"><col width="15%"><col width="70%"><col width="15%">' +
-				'<tr><th>Code</th><th >Name</th><th>Available</th></tr>';
+	var content = "<table width=\"100%\"><col width=\"15%\"><col width=\"70%\"><col width=\"15%\">" +
+				"<tr><th>Code</th><th >Name</th><th>Available</th></tr>";
 
 	for (var ind of metaData.indicators) {
-		content += '<tr><td rowspan=3>' + (ind.code ? ind.code : 'N/A') + 
-			'</td><td align="left">' + ind.name + '</td><td align="center">▢</td></tr>'
-		content += '<tr><td><p style="margin: 0px; margin-left: 24px;">Numerator: ' 
-				+ ind.numeratorDescription + '</td><td align="center">▢</td></tr>';
-		content += '<tr><td><p style="margin: 0px; margin-left: 24px;">Denominator: ' 
-				+ ind.denominatorDescription + '</td><td align="center">▢</td></tr>';
+		content += "<tr><td rowspan=3>" + (ind.code ? ind.code : "N/A") + 
+			"</td><td align=\"left\">" + ind.name + "</td><td align=\"center\">▢</td></tr>";
+		content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\">Numerator: " 
+				+ ind.numeratorDescription + "</td><td align=\"center\">▢</td></tr>";
+		content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\">Denominator: " 
+				+ ind.denominatorDescription + "</td><td align=\"center\">▢</td></tr>";
 	}
 	
-	content += '</table>';
+	content += "</table>";
 	
 	return content;
 

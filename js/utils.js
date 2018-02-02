@@ -1,7 +1,7 @@
-'use strict';
+"use strict";
 
 var fs = require("fs");
-var Q = require('q');
+var Q = require("q");
 
 module.exports.saveFileJson = saveFileJson;
 module.exports.sortMetaData = sortMetaData;
