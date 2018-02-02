@@ -6,6 +6,7 @@ var utils = require('./utils.js');
 
 module.exports.makeReferenceList = makeReferenceList;
 module.exports.makeConfigurationChecklist = makeConfigurationChecklist;
+module.exports.makeAvailabilityChecklist = makeAvailabilityChecklist;
 
 
 //Read metadata and make a Table of Content in markdown format
@@ -649,7 +650,7 @@ function makeConfigurationChecklist(fileName, metaData) {
 		}
 
 		content += "\n## Indicators \n";
-		content += utils.htmlTableFromArray(table, true, [80, 20], ["left", "center"]);
+		content += utils.htmlTableFromArray(table, true, [85, 15], ["left", "center"]);
 	}
 
 	//category option group sets
@@ -665,7 +666,7 @@ function makeConfigurationChecklist(fileName, metaData) {
 		}
 
 		content += "\n## Category Option Groups \n";
-		content += utils.htmlTableFromArray(table, true, [80, 20], ["left", "center"]);
+		content += utils.htmlTableFromArray(table, true, [85, 15], ["left", "center"]);
 	}
 
 
@@ -679,4 +680,171 @@ function makeConfigurationChecklist(fileName, metaData) {
 	});
 
 	return deferred.promise;
+}
+
+
+//Read metadata and make checklist that can be used pre-implementation to 
+//map the availability of data elements and/or indicators
+function makeAvailabilityChecklist(fileName, metaData) {
+	var deferred = Q.defer();
+
+	var content = "# Availability mapping\n";
+
+	//data elements
+	if (metaData.dataSets && metaData.dataElements && metaData.dataElements.length > 0) {
+		content += "\n## Data elements \n";
+		
+		var printed = {};
+		for (var ds of metaData.dataSets) {
+			content += "\n### " + ds.name + " \n";
+			content += dataElementAvailabilityTable(dataElements(ds, metaData), metaData);
+		}
+		
+		var unGrouped = standaloneDataElements(metaData);
+		if (unGrouped.length > 0) {
+			content += "\n### Other \n";
+			content += dataElementAvailabilityTable(unGrouped, metaData);
+		}
+	}
+
+
+	//indicators
+	if (metaData.indicators && metaData.indicators.length > 0) {
+		content += "\n## Indicators \n";
+		content += indicatorAvailabilityTable(metaData);
+	}
+
+
+	fs.writeFile(fileName + "_availability.md", content, function(err) {
+		if(err) {
+			return console.log(err);
+		}
+
+		console.log("Availability checklist saved");
+		deferred.resolve(true);
+	});
+
+	return deferred.promise;
+}
+
+
+function dataElementAvailabilityTable(dataElems, metaData) {
+	var content = '<table width="100%"><col width="15%"><col width="70%"><col width="15%" align="center">' +
+					'<tr><th>Code</th><th >Name</th><th>Available</th></tr>';	
+	for (var de of dataElems) {
+		var cats = categories(de, metaData);
+
+		var rows = 2;
+		for (var c of cats) {
+			var opts = options(c, metaData);
+			rows++;
+			for (var opt of opts) {
+				rows++;
+			}
+		}
+
+		content += '<tr><td rowspan=' + (rows > 2 ? rows : 1) + '>' + (de.code ? de.code : 'N/A') + 
+			'</td><td align="left">' + de.name + '</td><td align="center">▢</td></tr>';
+	
+		for (var c of cats) {
+			var opts = options(c, metaData);
+			content += '<tr><td><p style="margin: 0px; margin-left: 24px;"><em>' + 
+					c.name + '</em></p></td><td align="center">▢</td></tr>';
+			for (var opt of opts) {
+				content += '<tr><td><p style="margin: 0px; margin-left: 48px;"><em>' + 
+					opt.name + '</em></p></td><td align="center">▢</td></tr>';
+			}
+		}
+		if (cats.length > 0) {
+			content += '<tr><td><p style="margin: 0px; margin-left: 24px; margin-bottom: 48px"><em>' + 
+					'Other disaggregations, specify:</em></p></td><td align="center">▢</td></tr>';
+		}
+	}
+
+	content += '</table>';
+	return content;
+}
+
+
+function indicatorAvailabilityTable(metaData) {
+	var content = '<table width="100%"><col width="15%"><col width="70%"><col width="15%">' +
+				'<tr><th>Code</th><th >Name</th><th>Available</th></tr>';
+
+	for (var ind of metaData.indicators) {
+		content += '<tr><td rowspan=3>' + (ind.code ? ind.code : 'N/A') + 
+			'</td><td align="left">' + ind.name + '</td><td align="center">▢</td></tr>'
+		content += '<tr><td><p style="margin: 0px; margin-left: 24px;">Numerator: ' 
+				+ ind.numeratorDescription + '</td><td align="center">▢</td></tr>';
+		content += '<tr><td><p style="margin: 0px; margin-left: 24px;">Denominator: ' 
+				+ ind.denominatorDescription + '</td><td align="center">▢</td></tr>';
+	}
+	
+	content += '</table>';
+	
+	return content;
+
+}
+
+function options(category, metaData) {
+	
+	if (category.id == "GLevLNI9wkl") return [];
+	
+	var opts = [];
+	for (var catCo of category.categoryOptions) {
+		for (var co of metaData.categoryOptions) {
+			if (catCo.id == co.id) opts.push(co);
+		}
+	}
+	return opts;
+}
+
+
+function categories(dataElement, metaData) {
+	
+	
+	//combo => catIds => cats
+	var comboId = dataElement.categoryCombo.id;
+	if (comboId == "bjDvmb4bfuf") return [];
+	
+	var ctg = [];
+	for (var cc of metaData.categoryCombos) {
+		if (cc.id === comboId) {
+			for (var cat of cc.categories) {
+				for (var ct of metaData.categories) {
+					if (cat.id == ct.id) ctg.push(ct);	
+				}
+			}
+		}
+	}
+	
+	return ctg;
+}
+
+function dataElements(dataSet, metaData) {
+	var des = [];
+	for (var de of metaData.dataElements) {
+		for (var dsde of dataSet.dataSetElements) {
+			if (dsde.dataElement.id == de.id) des.push(de);
+		}
+	}
+	
+	return des;
+}
+
+
+function standaloneDataElements(metaData) {
+	var des = [];
+	for (var de of metaData.dataElements) {
+		var grouped = false;
+		
+		for (var ds of metaData.dataSets) {
+			for (var dsde of ds.dataSetElements) {
+				if (de.id == dsde.dataElement.id) grouped = true;
+			}
+		}
+		
+		if (!grouped) des.push(de);
+	}
+	
+	return des;
 }

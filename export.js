@@ -181,7 +181,8 @@ function saveDashboard() {
 	Q.all([
 		utils.saveFileJson(currentExport.output, metaData),	
 		doc.makeReferenceList(currentExport.output, metaData),
-		doc.makeConfigurationChecklist(currentExport.output, metaData)
+		doc.makeConfigurationChecklist(currentExport.output, metaData),
+		doc.makeAvailabilityChecklist(currentExport.output, metaData),		
 	]).then(function(results) {
 
 		nextExport();
@@ -289,7 +290,8 @@ function processAggregate() {
 		saveAggregate();
 	}
 	else {
-		cancelCurrentExport();
+		//cancelCurrentExport();
+		saveAggregate();
 	}
 }
 
@@ -307,7 +309,8 @@ function saveAggregate() {
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
 		utils.saveFileJson(currentExport.output, metaData),	
-		doc.makeReferenceList(currentExport.output, metaData)
+		doc.makeReferenceList(currentExport.output, metaData),
+		doc.makeAvailabilityChecklist(currentExport.output, metaData)
 	]).then(function(results) {
 
 		nextExport();

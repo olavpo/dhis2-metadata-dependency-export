@@ -22,28 +22,6 @@
       "placeHolder": "[CONFIG]", 
       "publicAccess": "r-------", 
       "type": "dashboardAggregate"
-    }
-  ], 
-  "inactive": [
-    {
-      "dashboardIds": [
-        "BwYHhBSvLNL", 
-        "MaJqTSteIqg", 
-        "VtRtBqorLfR", 
-        "dp6xqlPGxbA", 
-        "xJXvUOEhnE9", 
-        "L2UmLVcb6Dm"
-      ], 
-      "indicatorGroupIds": [
-        "V4SoC7TzFMi", 
-        "OMyYjoU07pC", 
-        "QCrsjqhAcWA"
-      ], 
-      "name": "TB dashboards", 
-      "output": "/Users/Olav/Downloads/tb_dashboard.json", 
-      "placeHolder": "[PLACEHOLDER]", 
-      "publicAccess": "r-------", 
-      "type": "dashboardAggregate"
     },
     {
       "dashboardIds": [
@@ -89,6 +67,28 @@
         "vtIZawvyEM7", 
         "xnxqh8hX6Ag"
       ]
+    }
+  ], 
+  "inactive": [
+    {
+      "dashboardIds": [
+        "BwYHhBSvLNL", 
+        "MaJqTSteIqg", 
+        "VtRtBqorLfR", 
+        "dp6xqlPGxbA", 
+        "xJXvUOEhnE9", 
+        "L2UmLVcb6Dm"
+      ], 
+      "indicatorGroupIds": [
+        "V4SoC7TzFMi", 
+        "OMyYjoU07pC", 
+        "QCrsjqhAcWA"
+      ], 
+      "name": "TB dashboards", 
+      "output": "/Users/Olav/Downloads/tb_dashboard.json", 
+      "placeHolder": "[PLACEHOLDER]", 
+      "publicAccess": "r-------", 
+      "type": "dashboardAggregate"
     }
   ]
 }
