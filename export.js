@@ -64,12 +64,12 @@ function nextExport() {
 
 	currentExport = exportQueue.pop();
 	if (!currentExport) {
-		console.log("\nAll exports done!\n");
+		console.log("\nNo more exports queued\n");
 		return;
 	}
 	else {
 		exporting = true;
-		console.log("\nExporting " + currentExport.name);
+		console.log("\n***** Packaging " + currentExport.name + " *****");
 	}
 
 	metaData = {};
@@ -100,18 +100,8 @@ function cancelCurrentExport() {
  * Start export of complete aggregate packages: dataset and dashboards with deps
  */
 function exportDashboard() {
-	/*
-	Only data element in datasets included. Include config option for "placeholder"
-	datasets that is only used to get dependencies, but where the actual dataset is not 
-	included in the export file. This also includes other data elements used in 
-	indicators, like those for population.
 	
-	Favourites and indicator formulas should still be checked for data elements, 
-	category option groups, legend sets etc. For legend sets, category option groups etc
-	they should be included, but for data elements we should only show a warning that 
-	they need to be added to a data set to be included.
-	*/
-		
+	console.log("1. Downloading metadata")		
 	//Do initial dependency export
 	var promises = [
 		dependencyExport("dashboard", currentExport.dashboardIds),
@@ -134,7 +124,7 @@ function exportDashboard() {
 				legendSets()
 			];
 			Q.all(promises).then(function (results) {
-				
+				console.log("✔ Downloaded metadata successfully");
 				processDashboard();
 			
 			});	
@@ -152,7 +142,7 @@ function exportDashboard() {
 function processDashboard() {
 
 	var success = true;
-	console.log("Validating exported metadata");
+	console.log("\n2. Validating exported metadata");
 	
 	//Remove current configuration of indicators and cateogry option groups
 	clearIndicatorFormulas();
@@ -184,7 +174,6 @@ function processDashboard() {
 	
 	if (success) {
 		console.log("✔ Validation passed");
-		// + currentExport.name);
 		saveDashboard();
 	}
 	else {
@@ -197,6 +186,8 @@ function processDashboard() {
  * Save aggregate package
  */
 function saveDashboard() {
+
+	console.log("\n3. Saving metadata and documentation");
 
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);
