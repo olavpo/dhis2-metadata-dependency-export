@@ -400,6 +400,9 @@ function dependencyExport(type, ids) {
 
 
 function limitedDependencyExport(dataSetIds) {
+	if (dataSetIds.length == 0) return true;	
+	
+	
 	var deferred = Q.defer();
 	
 	var promises = [];
@@ -822,7 +825,7 @@ function validateDataElementReference() {
 			metaData.indicators[i].denominator, true);
 			
 		for (var j = 0; j < result.length; j++) {
-			ids[result[j]] = "indicator";
+			ids[result[j]] = "indicator " + metaData.indicators[i].id;
 		}
 	}
 	
@@ -834,7 +837,7 @@ function validateDataElementReference() {
 		);
 			
 		for (var j = 0; j < result.length; j++) {
-			ids[result[j]] = "predictor";
+			ids[result[j]] = "predictor " + metaData.predictors[i].id;
 		}
 	}
 	
@@ -846,7 +849,7 @@ function validateDataElementReference() {
 		);
 			
 		for (var j = 0; j < result.length; j++) {
-			ids[result[j]] = "validationRule";
+			ids[result[j]] = "validationRule " + metaData.validationRules[i].id;
 		}
 		
 		result = utils.idsFromFormula(
@@ -855,7 +858,7 @@ function validateDataElementReference() {
 		);
 			
 		for (var j = 0; j < result.length; j++) {
-			ids[result[j]] = "validationRule";
+			ids[result[j]] = "validationRule " + metaData.validationRules[i].id;
 		}
 	}
 	
