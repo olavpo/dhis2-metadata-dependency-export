@@ -33,57 +33,41 @@ function makeReferenceList(fileName, metaData) {
 		for (var i = 0; i < metaData.dataSets.length; i++) {
 			ds = metaData.dataSets[i];
 
+			var dsSec = sections(ds, metaData);
+
 			content += "### " + ds.name + " \n";
 			content += "Property | Value \n --- | --- \n";
 			content += "Name: | " + ds.name + "\n";
 			content += "Custom form: | " + (ds.dataEntryForm ? ds.dataEntryForm.id : "No") + "\n";
+			content += "Sections: | " + (dsSec.length > 0 ? "Yes" : "No") + "\n";
 			content += "Last updated: | " + ds.lastUpdated.substr(0,10) + "\n";
 			content += "UID: | " + ds.id+ "\n";
 
-			var secHeader = false;
-			for (var j = 0; metaData.sections && j < metaData.sections.length; j++) {
-				sec = metaData.sections[j];
-				if (sec.dataSet.id == ds.id) {
-
-					if (!secHeader) {
-						secHeader = true;
-						content += "#### Sections\n";
-						content += "Section | Last updated | UID\n";
-						content += "--- | --- | ---\n";
-					}
-
+			if (dsSec.length > 0) {
+				content += "#### Sections\n";
+				content += "Section | Last updated | UID\n";
+				content += "--- | --- | ---\n";
+					
+				for (var sec of sections(ds, metaData)) {
 					content += sec.name + " | " + sec.lastUpdated.substr(0,10) + " | " + sec.id + "\n";
 				}
+				
+				content += "#### Data Set Section - Data Element\n";
+				content += "Data Set Section | Data Element\n";
+				content += "--- | ---\n";
+				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
+				for (var row of dataSetSectionElementList) {
+					content+= row.section + " | " + row.dataElement + "\n";
+				}
 			}
-
-			content += "#### Data Set - Data Set Section - Data Element\n";
-			content += "Data Set | Data Set Section | Data Element\n";
-			content += "--- | --- | ---\n";
-			for (var k = 0; k < ds.dataSetElements.length; k++) {
-				de = ds.dataSetElements[k].dataElement;
-
-				var section = "[None]";
-				for (var l = 0; metaData.sections && l < metaData.sections.length; l++) {
-					sec = metaData.sections[l];
-					if (ds.id === sec.dataSet.id) {
-						for (var m = 0; m < sec.dataElements.length; m++) {
-							if (de.id === sec.dataElements[m].id) {
-								m = sec.dataElements.length;
-								l = metaData.sections.length;
-								section = sec.name;
-							}
-						}
-					}
+			else {
+				content += "#### Data Elements\n";
+				content += "| Data Element |\n";
+				content += "| --- |\n";
+				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
+				for (var row of dataSetSectionElementList) {
+					content+= "| " + row.dataElement + " |\n";
 				}
-
-				for (var l = 0; l < metaData.dataElements.length; l++) {
-					if (de.id === metaData.dataElements[l].id) {
-						de = metaData.dataElements[l];
-						break;
-					}
-				}
-
-				content += ds.name + " | " + section + " | " + de.name + "\n";
 			}
 		}
 	}
@@ -833,6 +817,26 @@ function dataElements(dataSet, metaData) {
 	return des;
 }
 
+function dataElement(id, metaData) {
+	for (var de of metaData.dataElements) {
+		if (id == de.id) return de;
+	}
+	
+	return false;
+}
+
+
+function sections(dataSet, metaData) {
+	var ses = [];
+	for (var se of metaData.sections) {
+		if (se.dataSet.id == dataSet.id) ses.push(se);		
+	}
+	
+	//Sort by sort order
+	ses = utils.arraySortByProperty(ses, "sortOrder", true, true);
+	return ses;
+}
+
 
 function standaloneDataElements(metaData) {
 	var des = [];
@@ -849,4 +853,35 @@ function standaloneDataElements(metaData) {
 	}
 	
 	return des;
+}
+
+
+function dataSetSectionElement(dataSet, metaData) {
+
+	var deIndex = {};
+	for (var dse of dataSet.dataSetElements) {
+		deIndex[dse.dataElement.id] = true;
+	}
+
+	var allSections = sections(dataSet, metaData);	
+	var structure = [];
+	
+	for (var sec of allSections) {
+		for (var de of sec.dataElements) {
+			structure.push({
+				"section": sec.name, 
+				"dataElement": dataElement(de.id, metaData).name
+			});
+			delete deIndex[de.id];
+		}
+	}
+	
+	for (var de in deIndex) {
+		structure.push({
+			"section": "None", 
+			"dataElement": dataElement(de, metaData).name
+		});
+	}
+	
+	return structure;
 }
