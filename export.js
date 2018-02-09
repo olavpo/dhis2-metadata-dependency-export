@@ -235,7 +235,8 @@ function exportAggregate() {
 	];
 	Q.all(promises).then(function (results) {
 				
-		//Get indicators and categoryOptionGroupSets from favourites
+		
+		//Get indicators and categoryOptionGroupSets from favourites and groups
 		//Get validation rules and groups from conf file
 		//Get data element and indicator groups from conf files
 		promises = [
@@ -435,6 +436,7 @@ function limitedDependencyExport(dataSetIds) {
 
 
 function indicators() {	
+	var deferred = Q.defer();
 
 	//Indicators from favorites
 	var types = ["charts", "mapViews", "reportTables"], ids = [];
@@ -448,7 +450,17 @@ function indicators() {
 		}
 	}
 	
-	return saveObject("indicators", ids);
+	var promises = [];
+	promises.push(saveObject("indicators", ids));
+	promises.push(d2.get("/api/indicators.json?filter=indicatorGroups.id:in:[" + 		
+		currentExport.exportIndicatorGroupsIds.join(",") + "]&fields=:owner&paging=false"));
+	
+	Q.all(promises).then(function (results) {
+		addToMetdata("indicators", results[1].indicators);
+		deferred.resolve(true);
+	});
+	
+	return deferred.promise;
 }
 
 

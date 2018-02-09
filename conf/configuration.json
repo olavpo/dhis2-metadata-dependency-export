@@ -5,22 +5,143 @@
   "export": [
     {
       "dashboardIds": [
+        "b8F1kKlV9Fk"
+      ], 
+      "dataElementGroupIds": [
+        "ri242cU0Sm5", 
+        "tbQsD5xgWDH", 
+        "cDz6fWn4n7M", 
+        "cWFV4unGXXn", 
+        "O3Y4zr16OCX", 
+        "QA59eN3tJve"
+      ], 
+      "dataSetIds": [
+        "qNtxTrp56wV", 
+        "VEM58nY22sO"
+      ], 
+      "exportDataSetIds": [
+        "e8BAh6eGcNE"
+      ], 
+      "exportIndicatorGroupsIds": [
+        "mrrlu8kux0s"
+      ], 
+      "indicatorGroupIds": [
+        "YKVsWm3b47n"
+      ], 
+      "name": "Malaria elimination", 
+      "output": "/Users/Olav/Downloads/malaria_elimination", 
+      "publicAccess": "r-------", 
+      "type": "completeAggregate", 
+      "validationRuleGroupIds": [
+        "y4UWjeyKIwS"
+      ]
+    }
+  ], 
+  "inactive": [
+    {
+      "dashboardIds": [
+        "sLldHZZgnFx"
+      ], 
+      "dataElementGroupIds": [
+        "ri242cU0Sm5", 
+        "tbQsD5xgWDH", 
+        "cDz6fWn4n7M", 
+        "cWFV4unGXXn", 
+        "O3Y4zr16OCX", 
+        "QA59eN3tJve"
+      ], 
+      "dataSetIds": [
+        "qNtxTrp56wV", 
+        "O34y2Kyxx6P"
+      ], 
+      "exportDataSetIds": [
+        "e8BAh6eGcNE"
+      ], 
+      "exportIndicatorGroupsIds": [
+        "qi3acNeMc6V"
+      ], 
+      "indicatorGroupIds": [
+        "YKVsWm3b47n"
+      ], 
+      "name": "Malaria burden reduction", 
+      "output": "/Users/Olav/Downloads/malaria_burden_reduction", 
+      "publicAccess": "r-------", 
+      "type": "completeAggregate", 
+      "validationRuleGroupIds": [
+        "rNYeFmJm04s"
+      ]
+    }, 
+    {
+      "dashboardIds": [
         "b8F1kKlV9Fk", 
         "sLldHZZgnFx", 
         "GEq9y3pVbrb"
       ], 
+      "dataElementGroupIds": [
+        "ri242cU0Sm5", 
+        "tbQsD5xgWDH", 
+        "cDz6fWn4n7M", 
+        "cWFV4unGXXn", 
+        "O3Y4zr16OCX", 
+        "QA59eN3tJve"
+      ], 
+      "dataSetIds": [
+        "qNtxTrp56wV", 
+        "O34y2Kyxx6P", 
+        "VEM58nY22sO"
+      ], 
+      "exportDataSetIds": [
+        "e8BAh6eGcNE"
+      ], 
+      "exportIndicatorGroupsIds": [], 
+      "indicatorGroupIds": [
+        "YKVsWm3b47n", 
+        "qi3acNeMc6V", 
+        "mrrlu8kux0s", 
+        "CMoPFMy5SZx"
+      ], 
+      "name": "Malaria complete", 
+      "output": "/Users/Olav/Downloads/malaria_complete", 
+      "publicAccess": "r-------", 
+      "type": "completeAggregate", 
+      "validationRuleGroupIds": [
+        "y4UWjeyKIwS", 
+        "rNYeFmJm04s"
+      ]
+    }, 
+    {
+      "dashboardIds": [
+        "b8F1kKlV9Fk", 
+        "sLldHZZgnFx", 
+        "GEq9y3pVbrb"
+      ], 
+      "exportIndicatorGroupsIds": [], 
       "indicatorGroupIds": [
         "YKVsWm3b47n", 
         "qi3acNeMc6V", 
         "mrrlu8kux0s",
         "CMoPFMy5SZx"
       ], 
-      "name": "Malaria dashboards", 
+      "name": "Malaria dashboard", 
       "output": "/Users/Olav/Downloads/malaria_dashboard", 
       "placeHolder": "[CONFIG]", 
       "publicAccess": "r-------", 
       "type": "dashboardAggregate"
     },
+    {
+      "dashboardIds": [
+        "q9qKbXTDgEh"
+      ], 
+      "exportIndicatorGroupsIds": [], 
+      "indicatorGroupIds": [
+        "HX1nmjQyvdd"
+      ], 
+      "name": "HIV dashboard", 
+      "output": "/Users/Olav/Downloads/hiv_dashboard", 
+      "placeHolder": "[CONFIG]", 
+      "publicAccess": "r-------", 
+      "type": "dashboardAggregate"
+    }, 
     {
       "dashboardIds": [
         "BwYHhBSvLNL", 
@@ -30,7 +151,32 @@
         "xJXvUOEhnE9", 
         "L2UmLVcb6Dm"
       ], 
+      "exportIndicatorGroupsIds": [], 
+      "indicatorGroupIds": [
+        "V4SoC7TzFMi", 
+        "OMyYjoU07pC", 
+        "QCrsjqhAcWA"
+      ], 
+      "name": "TB dashboard", 
+      "output": "/Users/Olav/Downloads/tb_dashboard", 
+      "placeHolder": "[CONFIG]", 
+      "publicAccess": "r-------", 
+      "type": "dashboardAggregate"
+    }, 
+    {
+      "": [
+        "S0n1torLnUz"
+      ], 
+      "dashboardIds": [
+        "BwYHhBSvLNL", 
+        "MaJqTSteIqg", 
+        "VtRtBqorLfR", 
+        "dp6xqlPGxbA", 
+        "xJXvUOEhnE9", 
+        "L2UmLVcb6Dm"
+      ], 
       "dataElementGroupIds": [
+        "VGJHJGsfdRR", 
         "aGtzAAao0Mt", 
         "m54T3OptLaU", 
         "fAS1m0weZsf", 
@@ -46,15 +192,15 @@
         "kiODgwGG9I2"
       ],
       "exportDataSetIds": [
-        "oeI6SP4HRrZ"
+        "gUUBxTWcEUi"
       ], 
       "indicatorGroupIds": [
         "V4SoC7TzFMi", 
         "OMyYjoU07pC", 
         "QCrsjqhAcWA"
       ], 
-      "name": "TB Aggregate", 
-      "output": "/Users/Olav/Downloads/tb_aggregate", 
+      "name": "TB", 
+      "output": "/Users/Olav/Downloads/tb", 
       "publicAccess": "r-------", 
       "type": "completeAggregate", 
       "validationRuleGroupIds": [
@@ -65,28 +211,6 @@
         "vtIZawvyEM7", 
         "xnxqh8hX6Ag"
       ]
-    }
-  ], 
-  "inactive": [
-    {
-      "dashboardIds": [
-        "BwYHhBSvLNL", 
-        "MaJqTSteIqg", 
-        "VtRtBqorLfR", 
-        "dp6xqlPGxbA", 
-        "xJXvUOEhnE9", 
-        "L2UmLVcb6Dm"
-      ], 
-      "indicatorGroupIds": [
-        "V4SoC7TzFMi", 
-        "OMyYjoU07pC", 
-        "QCrsjqhAcWA"
-      ], 
-      "name": "TB dashboards", 
-      "output": "/Users/Olav/Downloads/tb_dashboard.json", 
-      "placeHolder": "[PLACEHOLDER]", 
-      "publicAccess": "r-------", 
-      "type": "dashboardAggregate"
     }
   ]
 }
