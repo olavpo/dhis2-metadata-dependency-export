@@ -300,6 +300,8 @@ function processAggregate() {
 	//Verify that no unsupported data dimensions are used
 	if (!validateFavoriteDataDimension()) success = false;
 
+	//Verify that data sets with section include all data elements
+	if (!validationDataSetSections()) success = false;
 	
 	if (success) {
 		console.log("Ready to save " + currentExport.name);
@@ -967,6 +969,46 @@ function validateGroupReferences() {
 		for (var issue of unGrouped) {
 			console.log(issue.type + " - " + issue.id + " - " 
 				+ issue.name);
+		}
+	}
+	else return true;
+}
+
+function validationDataSetSections() {
+	if (!metaData.dataSets || !metaData.sections) return true;
+	
+	var issues = [];
+	for (var ds of metaData.dataSets) {
+
+		var dataElements = {};
+		for (var dse of ds.dataSetElements) {
+			dataElements[dse.dataElement.id] = true;
+		}
+
+		var hasSections = false;
+		for (var sec of metaData.sections) {
+			if (sec.dataSet.id == ds.id) {
+				hasSections = true;
+				for (var de of sec.dataElements) {
+					delete dataElements[de.id];
+				}
+			}
+		}
+				
+		if (hasSections) {
+			for (var id in dataElements) {
+				issues.push({
+					"dataSet": ds.id,
+					"dataElement": id
+				});
+			}
+		}
+	}
+	
+	if (issues.length > 0) {
+		console.log("\nERROR | Data elements in data set, but not sections:");
+		for (var issue of issues) {
+			console.log(issue.dataElement + " in data set " + issue.dataSet);
 		}
 	}
 	else return true;
