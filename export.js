@@ -900,8 +900,9 @@ function validateGroupReferences() {
 
 
 	//data element group membership
-	var item, group, grouped = {}, unGrouped = [], validMembers = [], found = false;
+	var item, group, grouped = {}, unGrouped = [], found = false;
 	for (var i = 0; metaData.dataElementGroups && i < metaData.dataElementGroups.length; i++) {
+		var validMembers = [];
 		group = metaData.dataElementGroups[i];
 		for (var j = 0; j < group.dataElements.length; j++) {
 			item = group.dataElements[j];
@@ -932,8 +933,9 @@ function validateGroupReferences() {
 
 
 	//indicator group membership
-	grouped = {}, validMembers = [];
+	grouped = {};
 	for (var i = 0; metaData.indicatorGroups && i < metaData.indicatorGroups.length; i++) {
+		var validMembers = [];
 		group = metaData.indicatorGroups[i];
 
 		for (var j = 0; j < group.indicators.length; j++) {

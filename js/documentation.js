@@ -104,8 +104,7 @@ function makeReferenceList(fileName, metaData) {
 		content += "Name | Shortname | Last updated | UID\n";
 		content += "--- | --- | --- | --- \n";
 
-		for (var j = 0; metaData.dataElementGroups && j < metaData.dataElementGroups.length; j++) {
-			item = metaData.dataElementGroups[j];
+		for (var item of metaData.dataElementGroups) {
 			content += item.name + " | " + item.shortName + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
 
 		}
@@ -114,18 +113,10 @@ function makeReferenceList(fileName, metaData) {
 		content += "Data Element Group | Data Element\n";
 		content += "--- | --- \n";
 		var item, elements;
-		for (var j = 0; metaData.dataElementGroups && j < metaData.dataElementGroups.length; j++) {
-			item = metaData.dataElementGroups[j];
-			for (var k = 0; k < item.dataElements.length; k++) {
-				de = item.dataElements[k];
-				for (var l = 0; l < metaData.dataElements.length; l++) {
-					if (de.id === metaData.dataElements[l].id) {
-						content += item.name + " | " + metaData.dataElements[l].name + "\n";
-					}
-				}
+		for (var item of metaData.dataElementGroups) {
+			for (var de of item.dataElements) {
+				content += item.name + " | " + getName(de.id, metaData) + "\n";
 			}
-
-
 		}
 	}
 
@@ -884,4 +875,18 @@ function dataSetSectionElement(dataSet, metaData) {
 	}
 	
 	return structure;
+}
+
+
+function getName(id, metaData) {
+	for (var type in metaData) {
+		if (utils.isArray(metaData[type])) {
+			for (var item of metaData[type]) {
+				if (item.hasOwnProperty("id") && item.hasOwnProperty("name") && item.id == id) {
+					return item.name;
+				}
+			}
+		}
+	}
+	return id;
 }

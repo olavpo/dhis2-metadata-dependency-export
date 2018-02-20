@@ -35,12 +35,63 @@
       "validationRuleGroupIds": [
         "y4UWjeyKIwS"
       ]
-    }
-  ], 
-  "inactive": [
+    }, 
     {
       "dashboardIds": [
-        "sLldHZZgnFx"
+        "jEZlIePnBUV", 
+        "GLBzGIEwP7g"
+      ], 
+      "dataElementGroupIds": [
+        "GynKupv5MlH", 
+        "LR0hF4laoP0", 
+        "N0MAZbHXM7o", 
+        "EGhHUHR2YcW", 
+        "wLwKx08aKP9", 
+        "q9suW77psE2"
+      ], 
+      "dataSetIds": [
+        "jqSaKxtj8IA"
+      ], 
+      "exportDataSetIds": [], 
+      "exportIndicatorGroupsIds": [], 
+      "indicatorGroupIds": [
+        "jWbf0RIUhji", 
+        "Us7U5nyds0r", 
+        "W7E4YoQngAv", 
+        "IratxVbStzY", 
+        "zcQRGoQMQeC"
+      ], 
+      "name": "Immunisation", 
+      "output": "/Users/Olav/Downloads/epi", 
+      "publicAccess": "r-------", 
+      "type": "completeAggregate", 
+      "validationRuleGroupIds": [
+        "oY3uQUIIdsb"
+      ]
+    }, 
+    {
+      "dashboardIds": [
+        "jEZlIePnBUV", 
+        "GLBzGIEwP7g"
+  ], 
+      "exportIndicatorGroupsIds": [], 
+      "indicatorGroupIds": [
+        "jWbf0RIUhji", 
+        "Us7U5nyds0r", 
+        "W7E4YoQngAv", 
+        "IratxVbStzY", 
+        "zcQRGoQMQeC"
+      ], 
+      "name": "Immunisation dashboard", 
+      "output": "/Users/Olav/Downloads/epi_dashboard", 
+      "placeHolder": "[CONFIG]", 
+      "publicAccess": "r-------", 
+      "type": "dashboardAggregate"
+    }, 
+    {
+      "dashboardIds": [
+        "sLldHZZgnFx", 
+        "GEq9y3pVbrb"
       ], 
       "dataElementGroupIds": [
         "ri242cU0Sm5", 
@@ -73,9 +124,7 @@
     }, 
     {
       "dashboardIds": [
-        "b8F1kKlV9Fk", 
-        "sLldHZZgnFx", 
-        "GEq9y3pVbrb"
+        "b8F1kKlV9Fk"
       ], 
       "dataElementGroupIds": [
         "ri242cU0Sm5", 
@@ -87,43 +136,50 @@
       ], 
       "dataSetIds": [
         "qNtxTrp56wV", 
-        "O34y2Kyxx6P", 
         "VEM58nY22sO"
       ], 
       "exportDataSetIds": [
         "e8BAh6eGcNE"
       ], 
-      "exportIndicatorGroupsIds": [], 
-      "indicatorGroupIds": [
-        "YKVsWm3b47n", 
-        "qi3acNeMc6V", 
-        "mrrlu8kux0s", 
-        "CMoPFMy5SZx"
+      "exportIndicatorGroupsIds": [
+        "mrrlu8kux0s"
       ], 
-      "name": "Malaria complete", 
-      "output": "/Users/Olav/Downloads/malaria_complete", 
+      "indicatorGroupIds": [
+        "YKVsWm3b47n"
+      ], 
+      "name": "Malaria elimination", 
+      "output": "/Users/Olav/Downloads/malaria_elimination", 
       "publicAccess": "r-------", 
       "type": "completeAggregate", 
       "validationRuleGroupIds": [
-        "y4UWjeyKIwS", 
-        "rNYeFmJm04s"
+        "y4UWjeyKIwS"
       ]
     }, 
     {
       "dashboardIds": [
-        "b8F1kKlV9Fk", 
         "sLldHZZgnFx", 
         "GEq9y3pVbrb"
       ], 
       "exportIndicatorGroupsIds": [], 
       "indicatorGroupIds": [
-        "YKVsWm3b47n", 
-        "qi3acNeMc6V", 
-        "mrrlu8kux0s",
-        "CMoPFMy5SZx"
+        "YKVsWm3b47n"
       ], 
-      "name": "Malaria dashboard", 
-      "output": "/Users/Olav/Downloads/malaria_dashboard", 
+      "name": "Malaria burden reduction dashboard", 
+      "output": "/Users/Olav/Downloads/malaria_burden_reduction_dashboard", 
+      "placeHolder": "[CONFIG]", 
+      "publicAccess": "r-------", 
+      "type": "dashboardAggregate"
+    }, 
+    {
+      "dashboardIds": [
+        "b8F1kKlV9Fk"
+      ], 
+      "exportIndicatorGroupsIds": [], 
+      "indicatorGroupIds": [
+        "YKVsWm3b47n"
+      ], 
+      "name": "Malaria elimination dashboard", 
+      "output": "/Users/Olav/Downloads/malaria_elimination_dashboard", 
       "placeHolder": "[CONFIG]", 
       "publicAccess": "r-------", 
       "type": "dashboardAggregate"
@@ -164,9 +220,6 @@
       "type": "dashboardAggregate"
     }, 
     {
-      "": [
-        "S0n1torLnUz"
-      ], 
       "dashboardIds": [
         "BwYHhBSvLNL", 
         "MaJqTSteIqg", 
@@ -194,6 +247,9 @@
       "exportDataSetIds": [
         "gUUBxTWcEUi"
       ], 
+      "exportIndicatorGroupsIds": [
+        "S0n1torLnUz"
+      ], 
       "indicatorGroupIds": [
         "V4SoC7TzFMi", 
         "OMyYjoU07pC", 
@@ -212,5 +268,6 @@
         "xnxqh8hX6Ag"
       ]
     }
-  ]
+  ], 
+  "inactive": []
 }
