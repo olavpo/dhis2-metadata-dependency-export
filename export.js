@@ -25,7 +25,7 @@ run();
  * Prompt user and password, then make a queue of exports to process
  */
 function run() {
-	
+
 	prompt.start();
 	
 	var schema = {
@@ -173,21 +173,21 @@ function exportDashboard() {
  * Verify, modify and save aggregate package
  */
 function processDashboard() {
-
+	
 	var success = true;
 	console.log("\n2. Validating exported metadata");
-	
+	/*
 	//Remove current configuration of indicators and cateogry option groups
 	clearIndicatorFormulas();
-	clearCategoryOptionGroups(); //TODO: consider adding default to "other"
+	clearCategoryOptionGroups();
 	
 	//Add prefix to objects to be mapped
 	prefixIndicators();
 	prefixCategoryOptionGroups();
-	
+	*/
 	//Remove ownership
 	removeOwnership();
-	
+	/*
 	//Make sure the "default defaults" are used
 	setDefaultUid();
 
@@ -313,8 +313,11 @@ function processAggregate() {
 	//Remove ownership
 	removeOwnership();
 		
-	//Make sure the "default defaults"" are used
+	//Make sure the "default defaults" are used
 	setDefaultUid();
+	
+	//Make sure we don't include orgunit assigment in datasets
+	clearDataSetAssignment();
 	
 	//Verify that all data elements referred in indicators, validation rules,
 	//predictors are included
@@ -648,6 +651,14 @@ function setDefaultUid() {
 }
 
 
+function clearDataSetAssignment() {
+	for (var i = 0; metaData.dataSets && i < metaData.dataSets.length; i++) {
+		metaData.dataSets[i].organisationUnits = [];
+	}
+	
+}
+
+
 //Clear indicator formulas
 function clearIndicatorFormulas() {
 	for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
@@ -671,7 +682,10 @@ function removeOwnership() {
 		var obj = metaData[objectType];
 		for (var j = 0; j < obj.length; j++) {
 			if (obj[j].hasOwnProperty("user")) delete obj[j].user;
-			if (obj[j].hasOwnProperty("userGroupAccesses")) delete obj[j].userGroupAccesses;
+			if (obj[j].hasOwnProperty("userGroupAccesses")) delete
+			 obj[j].userGroupAccesses;
+			if (obj[j].hasOwnProperty("userAccesses")) delete
+			 obj[j].userAccesses;
 			if (obj[j].hasOwnProperty("publicAccess")) obj[j].publicAccess = currentExport.publicAccess;
 
 		}
