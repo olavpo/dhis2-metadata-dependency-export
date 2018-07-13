@@ -23,7 +23,20 @@ $ node export.js
 ### Configuration
 
 
+### Output
+The file for each export will be save in a folder with the following format:
+`PREFIX_TYPE_DHIS2-VERSION_PACKAGE-VERSION`, e.g. `HIV_DASHBOARD_DHIS2.27_V1.0`
+
+
+## Misc
+`d2metapack` bash script is included as example of how to add the export script 
+to your PATH, so that it can be run like `d2metapath hivConfig.json` (where `hivConfig.json` is a configuration file as described above).
+
+
 ## To-do
+
+
+
 
 
 

@@ -2,8 +2,9 @@
 
 var Q = require("q");
 var prompt = require("prompt");
+var fs = require('fs');
 
-var conf = require("./conf/configuration.json");
+var conf;
 var d2 = require("./js/d2.js");
 var doc = require("./js/documentation.js");
 var utils = require("./js/utils.js");
@@ -40,7 +41,7 @@ function run() {
 	};
 	
 	prompt.get(schema, function (err, result) {		
-		d2.authentication(result.username, result.password);
+		d2.authentication(conf.dhis.url, result.username, result.password);
 		
 		d2.get("/api/system/info.json").then(function(result) {
 			console.log("\nConnected to instance: " + result.systemName);
@@ -53,6 +54,38 @@ function run() {
 			nextExport();
 		});
 	});  	
+}
+
+
+/**
+ * Read configuration file as commandline argument
+ */
+function readConfig() {
+	if (process.argv.length <= 2) {
+		console.log("Specify path to configuration file, for example:");
+		console.log("> node export.js hivConfig.json");
+		process.exit(1);
+	}
+	else {
+		var fileName = process.argv[2];
+		try {
+			conf = require(fileName);
+		}
+		catch (err) {
+			console.log("Problem reading configuration file: " + fileName);
+			console.log(err);
+			console.log("Please provide a valid path to the configuration file")
+			process.exit(1);
+		}
+		
+		if (!conf.hasOwnProperty("dhis") || !conf.hasOwnProperty("export")) {
+			console.log("Configuration file does not have a valid structure");
+			process.exit(1);
+		}
+		console.log("Loaded configuration " + fileName);
+		
+	}
+	return true;
 }
 
 

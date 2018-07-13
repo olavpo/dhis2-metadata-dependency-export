@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#1. update NODE_PATH to the absolute path of the node executable
+#2. update EXPORT_FILE to point to absolute path of export.js
+#3. make executable ('chmod +x d2metapack')
+#4. place this file on your PATH
+
+NODE_PATH=/usr/local/bin/node
+EXPORT_FILE=/Users/Olav/Kode/DHIS/metadataDependencyExport/export.js
+
+CONFIG=$1
+$NODE_PATH $EXPORT_FILE $CONFIG

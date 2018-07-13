@@ -1,6 +1,5 @@
 "use strict";
 
-var conf = require("../conf/configuration.json");
 var Q = require("q");
 var request = require("request");
 
@@ -10,11 +9,13 @@ module.exports.get = get;
 module.exports.post = post;
 module.exports.authentication = authentication;
 
+var baseUrl;
 var user;
 var password;
 var debug = false;
 
-function authentication(u, p) {
+function authentication(url, u, p) {
+	baseUrl = url;
 	user = u;
 	password = p;
 }
@@ -24,7 +25,7 @@ function post(url, payload) {
 
 	var deferred = Q.defer();
 
-	url = conf.dhis.url + url;
+	url = baseUrl + url;
 	if (debug) console.log("POST request: " + url);
 
 	request.post({
@@ -55,7 +56,7 @@ function put(url, payload) {
 
 	var deferred = Q.defer();
 
-	url = conf.dhis.url + url;
+	url = baseUrl + url;
 	if (debug) console.log("Put request: " + url);
 
 	request.put({
@@ -84,7 +85,7 @@ function patch(url, payload) {
 
 	var deferred = Q.defer();
 
-	url = conf.dhis.url + url;
+	url = baseUrl + url;
 	if (debug) console.log("Patch request: " + url);
 
 	request.patch({
@@ -133,7 +134,7 @@ function getNow() {
 		getCurrent = getQ.pop();
 	}
 
-	var url = conf.dhis.url + getCurrent.url;
+	var url = baseUrl + getCurrent.url;
 	if (debug) console.log("GET request: " + url);
 
 	request.get({
