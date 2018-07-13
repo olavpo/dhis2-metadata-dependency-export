@@ -25,7 +25,13 @@ run();
  * Prompt user and password, then make a queue of exports to process
  */
 function run() {
+	//Read configuration file. Will exit if not found or if not in correct format
+	readConfig();
+	var url = conf.dhis.url;
+	console.log("Server: " + url);
 
+
+	//Start prompt
 	prompt.start();
 	
 	var schema = {
