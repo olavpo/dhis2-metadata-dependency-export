@@ -25,7 +25,7 @@ $ node export.js
 
 ### Output
 The file for each export will be save in a folder with the following format:
-`PREFIX_TYPE_DHIS2-VERSION_PACKAGE-VERSION`, e.g. `HIV_DASHBOARD_DHIS2.27_V1.0`
+`PREFIX_TYPE_PACKAGE-VERSION_DHIS2-VERSION`, e.g. `HIV_DASHBOARD_V1.0_DHIS2.27`
 
 
 ## Misc

@@ -10,7 +10,7 @@ module.exports.makeAvailabilityChecklist = makeAvailabilityChecklist;
 
 
 //Read metadata and make a Table of Content in markdown format
-function makeReferenceList(fileName, metaData) {
+function makeReferenceList(basePath, metaData) {
 	var deferred = Q.defer();
 
 	//Make index over all object types, so that we can keep track of which ones
@@ -590,7 +590,7 @@ function makeReferenceList(fileName, metaData) {
 	}
 	
 
-	fs.writeFile(fileName + "_reference.md", content, function(err) {
+	fs.writeFile(basePath + "/reference.md", content, function(err) {
 		if(err) {
 			console.log(err);
 			deferred.resolve(false);
@@ -606,7 +606,7 @@ function makeReferenceList(fileName, metaData) {
 
 
 //Read metadata and make checklist for indicator availability in markdown format
-function makeConfigurationChecklist(fileName, metaData) {
+function makeConfigurationChecklist(basePath, metaData) {
 	var deferred = Q.defer();
 
 	var content = "# Configuration checklist\n";
@@ -646,7 +646,7 @@ function makeConfigurationChecklist(fileName, metaData) {
 	}
 
 
-	fs.writeFile(fileName + "_configuration.md", content, function(err) {
+	fs.writeFile(basePath + "/configuration.md", content, function(err) {
 		if(err) {
 			console.log(err);
 			deferred.resolve(false);
@@ -662,7 +662,7 @@ function makeConfigurationChecklist(fileName, metaData) {
 
 //Read metadata and make checklist that can be used pre-implementation to 
 //map the availability of data elements and/or indicators
-function makeAvailabilityChecklist(fileName, metaData) {
+function makeAvailabilityChecklist(basePath, metaData) {
 	var deferred = Q.defer();
 
 	var content = "# Availability mapping\n";
@@ -691,7 +691,7 @@ function makeAvailabilityChecklist(fileName, metaData) {
 	}
 
 
-	fs.writeFile(fileName + "_availability.md", content, function(err) {
+	fs.writeFile(basePath + "/availability.md", content, function(err) {
 		if(err) {
 			console.log(err);
 			deferred.resolve(false);

@@ -14,6 +14,8 @@ var exportQueue = [];
 var currentExport;
 var exporting = false;
 
+var dhis2version; 
+
 process.on("uncaughtException", function (err) {
 	console.log("Caught exception: " + err);
 });
@@ -53,6 +55,8 @@ function run() {
 			console.log("\nConnected to instance: " + result.systemName);
 			console.log("DHIS2 version: " + result.version);
 			
+			dhis2version = result.version;
+			
 			for (var i = 0; i < conf.export.length; i++) {
 				exportQueue.push(conf.export[i]);
 			}
@@ -84,7 +88,8 @@ function readConfig() {
 			process.exit(1);
 		}
 		
-		if (!conf.hasOwnProperty("dhis") || !conf.hasOwnProperty("export")) {
+		if (!conf.hasOwnProperty("dhis") || !conf.hasOwnProperty("export") ||
+		!conf.hasOwnProperty("general")) {
 			console.log("Configuration file does not have a valid structure");
 			process.exit(1);
 		}
@@ -143,7 +148,7 @@ function exportDashboard() {
 	console.log("1. Downloading metadata")		
 	//Do initial dependency export
 	var promises = [
-		dependencyExport("dashboard", currentExport.dashboardIds),
+		dependencyExport("dashboard", currentExport.dashboardIds)
 	];
 	Q.all(promises).then(function (results) {
 				
@@ -152,7 +157,10 @@ function exportDashboard() {
 		promises = [
 			indicators(), 
 			categoryOptionGroupSetStructure(),
-			saveObject("indicatorGroups", currentExport.indicatorGroupIds)
+			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
+			saveObject("userGroups", [].concat(conf.general.sharing.accessGroupIds, 
+				conf.general.sharing.adminGroupIds)),
+			saveObject("users", [conf.general.sharing.userId])
 		];
 		Q.all(promises).then(function (results) {
 
@@ -193,7 +201,7 @@ function processDashboard() {
 	*/
 	//Remove ownership
 	removeOwnership();
-	/*
+	
 	//Make sure the "default defaults" are used
 	setDefaultUid();
 
@@ -231,12 +239,18 @@ function saveDashboard() {
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);
 	
+	//Make a folder for storing the files in this package
+	var basePath = makeFolder();	
+	
+	//Add "ID" - package identifier + date
+	metaData["package"] = packageLabel() + '_' + new Date().toISOString();
+	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(currentExport.output, metaData),	
-		doc.makeReferenceList(currentExport.output, metaData),
-		doc.makeConfigurationChecklist(currentExport.output, metaData),
-		doc.makeAvailabilityChecklist(currentExport.output, metaData),		
+		utils.saveFileJson(basePath + '/metaData', metaData),	
+		doc.makeReferenceList(basePath + '/', metaData),
+		doc.makeConfigurationChecklist(basePath + '/', metaData),
+		doc.makeAvailabilityChecklist(basePath + '/', metaData),		
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
@@ -283,7 +297,10 @@ function exportAggregate() {
 			categoryOptionGroupSetStructure(),
 			validationRules(),
 			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
-			saveObject("indicatorGroups", currentExport.indicatorGroupIds)
+			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
+			saveObject("userGroups", [].concat(conf.general.sharing.accessGroupIds, 
+				conf.general.sharing.adminGroupIds)),
+			saveObject("users", [conf.general.sharing.userId])
 		];
 		Q.all(promises).then(function (results) {
 
@@ -314,7 +331,7 @@ function exportAggregate() {
 function processAggregate() {
 
 	var success = true;
-	console.log("Validating exported metadata");
+	console.log("\n2. Validating exported metadata");
 	
 	//Remove ownership
 	removeOwnership();
@@ -355,8 +372,6 @@ function processAggregate() {
 }
 
 
-
-
 /**
  * Save aggregate package
  */
@@ -365,11 +380,18 @@ function saveAggregate() {
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);
 	
+	//Make a folder for storing the files in this package
+	var basePath = makeFolder();	
+	
+	//Add "ID" - package identifier + date
+	metaData["package"] = packageLabel() + '_' + new Date().toISOString();
+	
+	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(currentExport.output, metaData),	
-		doc.makeReferenceList(currentExport.output, metaData),
-		doc.makeAvailabilityChecklist(currentExport.output, metaData)
+		utils.saveFileJson(basePath + '/metaData', metaData),	
+		doc.makeReferenceList(basePath + '/', metaData),
+		doc.makeAvailabilityChecklist(basePath + '/', metaData)
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
@@ -687,13 +709,26 @@ function removeOwnership() {
 	for (var objectType in metaData) {
 		var obj = metaData[objectType];
 		for (var j = 0; j < obj.length; j++) {
-			if (obj[j].hasOwnProperty("user")) delete obj[j].user;
-			if (obj[j].hasOwnProperty("userGroupAccesses")) delete
-			 obj[j].userGroupAccesses;
-			if (obj[j].hasOwnProperty("userAccesses")) delete
-			 obj[j].userAccesses;
-			if (obj[j].hasOwnProperty("publicAccess")) obj[j].publicAccess = currentExport.publicAccess;
-
+		
+		
+			//IF < 29
+			if (parseInt(dhis2version.split('.')[1]) < 29) {
+				if (obj[j].hasOwnProperty("user")) {
+					obj[j].user = { "id": "" };
+				}
+				if (obj[j].hasOwnProperty("userGroupAccesses")) {
+					//TODO
+				}
+				if (obj[j].hasOwnProperty("userAccesses")) {
+					delete obj[j].userAccesses;
+				}
+				if (obj[j].hasOwnProperty("publicAccess")) {
+					obj[j].publicAccess = conf.general.sharing.publicAccess;
+				}
+			}
+			else {
+				console.log("Version " + dhis2version + " not supported");
+			}			
 		}
 	}
 }
@@ -1029,6 +1064,7 @@ function validateGroupReferences() {
 	else return true;
 }
 
+
 function validationDataSetSections() {
 	if (!metaData.dataSets || !metaData.sections) return true;
 	
@@ -1116,4 +1152,48 @@ function mapFromMapView(mapViewId) {
 	}
 	return null;
 }
+
+
+//Get package "label"
+function packageLabel() {
+	var type = '';
+	switch (currentExport.type) {
+		case "completeAggregate": 
+			type = "COMPLETE";
+			break;
+		case "dashboardAggregate":
+			type = "DASHBOARD";
+			break;
+		case "tracker":
+			type = "TRACKER";
+			break;
+	}
+
+	var identifier = conf.general.prefix;
+	identifier += '_' + type;
+	identifier += '_V' + conf.general.version;
+	identifier += '_DHIS' + dhis2version;
+	
+	return identifier;
+	
+}
+
+
+//Make folder
+function makeFolder() {
+
+	var basePath = conf.general.basePath + '/' + packageLabel();
+	
+	try {
+    	fs.mkdirSync(basePath)
+	} 
+	catch (err) {
+    	if (err.code !== 'EEXIST') {
+    		throw err
+  		}
+	}
+	
+	return basePath;
+}
+
 
