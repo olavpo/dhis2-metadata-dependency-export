@@ -190,7 +190,7 @@ function processDashboard() {
 	
 	var success = true;
 	console.log("\n2. Validating exported metadata");
-	/*
+	
 	//Remove current configuration of indicators and cateogry option groups
 	clearIndicatorFormulas();
 	clearCategoryOptionGroups();
@@ -198,7 +198,7 @@ function processDashboard() {
 	//Add prefix to objects to be mapped
 	prefixIndicators();
 	prefixCategoryOptionGroups();
-	*/
+	
 	//Remove ownership
 	removeOwnership();
 	
@@ -230,7 +230,7 @@ function processDashboard() {
 
 
 /**
- * Save aggregate package
+ * Save dashboard package
  */
 function saveDashboard() {
 
@@ -714,10 +714,26 @@ function removeOwnership() {
 			//IF < 29
 			if (parseInt(dhis2version.split('.')[1]) < 29) {
 				if (obj[j].hasOwnProperty("user")) {
-					obj[j].user = { "id": "" };
+					obj[j].user = { "id": conf.general.sharing.userId };
 				}
 				if (obj[j].hasOwnProperty("userGroupAccesses")) {
-					//TODO
+					//TODO - overwrite vs preserve
+					var userGroupAccessSharing = [];
+					for (var k = 0; k < conf.general.sharing.adminGroupIds.length; k++) {
+						userGroupAccessSharing.push({
+							"access": "rw------", 
+							"id": conf.general.sharing.adminGroupIds[k], 
+							"userGroupUid": conf.general.sharing.adminGroupIds[k]
+						});
+					}
+					for (var k = 0; k < conf.general.sharing.accessGroupIds.length; k++) {
+						userGroupAccessSharing.push({
+							"access": "r-------", 
+							"id": conf.general.sharing.accessGroupIds[k], 
+							"userGroupUid": conf.general.sharing.accessGroupIds[k]
+						});
+					}
+					obj[j].userGroupAccesses = userGroupAccessSharing;
 				}
 				if (obj[j].hasOwnProperty("userAccesses")) {
 					delete obj[j].userAccesses;
