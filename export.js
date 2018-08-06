@@ -2,7 +2,7 @@
 
 var Q = require("q");
 var prompt = require("prompt");
-var fs = require('fs');
+var fs = require("fs");
 
 var conf;
 var d2 = require("./js/d2.js");
@@ -84,7 +84,7 @@ function readConfig() {
 		catch (err) {
 			console.log("Problem reading configuration file: " + fileName);
 			console.log(err);
-			console.log("Please provide a valid path to the configuration file")
+			console.log("Please provide a valid path to the configuration file");
 			process.exit(1);
 		}
 		
@@ -145,7 +145,7 @@ function cancelCurrentExport() {
  */
 function exportDashboard() {
 	
-	console.log("1. Downloading metadata")		
+	console.log("1. Downloading metadata");		
 	//Do initial dependency export
 	var promises = [
 		dependencyExport("dashboard", currentExport.dashboardIds)
@@ -249,14 +249,14 @@ function saveDashboard() {
 	var basePath = makeFolder();	
 	
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + '_' + new Date().toISOString();
+	metaData["package"] = packageLabel() + "_" + new Date().toISOString();
 	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + '/metaData', metaData),	
-		doc.makeReferenceList(basePath + '/', metaData),
-		doc.makeConfigurationChecklist(basePath + '/', metaData),
-		doc.makeAvailabilityChecklist(basePath + '/', metaData),		
+		utils.saveFileJson(basePath + "/metaData", metaData),	
+		doc.makeReferenceList(basePath + "/", metaData),
+		doc.makeConfigurationChecklist(basePath + "/", metaData),
+		doc.makeAvailabilityChecklist(basePath + "/", metaData),		
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
@@ -393,14 +393,14 @@ function saveAggregate() {
 	var basePath = makeFolder();	
 	
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + '_' + new Date().toISOString();
+	metaData["package"] = packageLabel() + "_" + new Date().toISOString();
 	
 	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + '/metaData', metaData),	
-		doc.makeReferenceList(basePath + '/', metaData),
-		doc.makeAvailabilityChecklist(basePath + '/', metaData)
+		utils.saveFileJson(basePath + "/metaData", metaData),	
+		doc.makeReferenceList(basePath + "/", metaData),
+		doc.makeAvailabilityChecklist(basePath + "/", metaData)
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
@@ -747,7 +747,7 @@ function removeOwnership() {
 
 			//IF < 29 then no data access sharing
 			var dataAccessSharing;
-			parseInt(dhis2version.split('.')[1]) < 29 ? dataAccessSharing = false : dataAccessSharing = false;
+			parseInt(dhis2version.split(".")[1]) < 29 ? dataAccessSharing = false : dataAccessSharing = false;
 				
 			if (obj[j].hasOwnProperty("userGroupAccesses")) {
 				//TODO - option for preseverving existing groups?
@@ -1031,9 +1031,9 @@ function validateGroupReferences() {
 
 
 	//data element group membership
-	var item, group, grouped = {}, unGrouped = [], found = false;
+	var item, group, grouped = {}, unGrouped = [], found = false, validMembers;
 	for (var i = 0; metaData.dataElementGroups && i < metaData.dataElementGroups.length; i++) {
-		var validMembers = [];
+		validMembers = [];
 		group = metaData.dataElementGroups[i];
 		for (var j = 0; j < group.dataElements.length; j++) {
 			item = group.dataElements[j];
@@ -1066,7 +1066,7 @@ function validateGroupReferences() {
 	//indicator group membership
 	grouped = {};
 	for (var i = 0; metaData.indicatorGroups && i < metaData.indicatorGroups.length; i++) {
-		var validMembers = [];
+		validMembers = [];
 		group = metaData.indicatorGroups[i];
 
 		for (var j = 0; j < group.indicators.length; j++) {
@@ -1199,23 +1199,23 @@ function mapFromMapView(mapViewId) {
 
 //Get package "label"
 function packageLabel() {
-	var type = '';
+	var type = "";
 	switch (currentExport.type) {
-		case "completeAggregate": 
-			type = "COMPLETE";
-			break;
-		case "dashboardAggregate":
-			type = "DASHBOARD";
-			break;
-		case "tracker":
-			type = "TRACKER";
-			break;
+	case "completeAggregate": 
+		type = "COMPLETE";
+		break;
+	case "dashboardAggregate":
+		type = "DASHBOARD";
+		break;
+	case "tracker":
+		type = "TRACKER";
+		break;
 	}
 
 	var identifier = conf.general.prefix;
-	identifier += '_' + type;
-	identifier += '_V' + conf.general.version;
-	identifier += '_DHIS' + dhis2version;
+	identifier += "_" + type;
+	identifier += "_V" + conf.general.version;
+	identifier += "_DHIS" + dhis2version;
 	
 	return identifier;
 	
@@ -1225,18 +1225,16 @@ function packageLabel() {
 //Make folder
 function makeFolder() {
 
-	var basePath = conf.general.basePath + '/' + packageLabel();
+	var basePath = conf.general.basePath + "/" + packageLabel();
 	
 	try {
-    	fs.mkdirSync(basePath)
+		fs.mkdirSync(basePath);
 	} 
 	catch (err) {
-    	if (err.code !== 'EEXIST') {
-    		throw err
-  		}
+		if (err.code !== "EEXIST") {
+			throw err;
+		}
 	}
 	
 	return basePath;
 }
-
-
