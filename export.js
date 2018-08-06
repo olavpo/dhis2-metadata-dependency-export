@@ -199,8 +199,14 @@ function processDashboard() {
 	prefixIndicators();
 	prefixCategoryOptionGroups();
 	
+	//Make sure we don't include orgunit assigment in datasets or users
+	clearOrgunitAssignment();
+
 	//Remove ownership
 	removeOwnership();
+
+	//Remove users from user groups
+	clearUserGroups();
 	
 	//Make sure the "default defaults" are used
 	setDefaultUid();
@@ -335,12 +341,15 @@ function processAggregate() {
 	
 	//Remove ownership
 	removeOwnership();
+
+	//Remove users from user groups
+	clearUserGroups();
 		
 	//Make sure the "default defaults" are used
 	setDefaultUid();
 	
-	//Make sure we don't include orgunit assigment in datasets
-	clearDataSetAssignment();
+	//Make sure we don't include orgunit assigment in datasets or users
+	clearOrgunitAssignment();
 	
 	//Verify that all data elements referred in indicators, validation rules,
 	//predictors are included
@@ -678,10 +687,18 @@ function setDefaultUid() {
 	}
 }
 
-
-function clearDataSetAssignment() {
+/**
+ * Clear assignment of orgnuits of dataSets and users.
+ */
+function clearOrgunitAssignment() {
 	for (var i = 0; metaData.dataSets && i < metaData.dataSets.length; i++) {
 		metaData.dataSets[i].organisationUnits = [];
+	}
+
+	for (var i = 0; metaData.users && i < metaData.users.length; i++) {
+		metaData.users[i].organisationUnits = [];
+		metaData.users[i].dataViewOrganisationUnits = [];
+		metaData.users[i].teiSearchOrganisationUnits = [];
 	}
 	
 }
@@ -704,47 +721,57 @@ function clearCategoryOptionGroups() {
 }
 
 
-//Remove "user", "userGroupAccesses" for applicable objects, set publicaccess according to configuration.json
+//Clear user groups, leaving only the included "owner" user.
+function clearUserGroups() {
+	for (var i = 0; metaData.userGroups && i < metaData.userGroups.length; i++) {
+		metaData.userGroups[i].users = [
+			{ "id": conf.general.sharing.userId }
+		];
+	}
+}
+
+
+//Remove "user", "userAccesses" for applicable objects, set userGroupAccesses and publicaccess according to configuration.json
 function removeOwnership() {
 	for (var objectType in metaData) {
 		var obj = metaData[objectType];
 		for (var j = 0; j < obj.length; j++) {
 		
-		
-			//IF < 29
-			if (parseInt(dhis2version.split('.')[1]) < 29) {
-				if (obj[j].hasOwnProperty("user")) {
-					obj[j].user = { "id": conf.general.sharing.userId };
-				}
-				if (obj[j].hasOwnProperty("userGroupAccesses")) {
-					//TODO - overwrite vs preserve
-					var userGroupAccessSharing = [];
-					for (var k = 0; k < conf.general.sharing.adminGroupIds.length; k++) {
-						userGroupAccessSharing.push({
-							"access": "rw------", 
-							"id": conf.general.sharing.adminGroupIds[k], 
-							"userGroupUid": conf.general.sharing.adminGroupIds[k]
-						});
-					}
-					for (var k = 0; k < conf.general.sharing.accessGroupIds.length; k++) {
-						userGroupAccessSharing.push({
-							"access": "r-------", 
-							"id": conf.general.sharing.accessGroupIds[k], 
-							"userGroupUid": conf.general.sharing.accessGroupIds[k]
-						});
-					}
-					obj[j].userGroupAccesses = userGroupAccessSharing;
-				}
-				if (obj[j].hasOwnProperty("userAccesses")) {
-					delete obj[j].userAccesses;
-				}
-				if (obj[j].hasOwnProperty("publicAccess")) {
-					obj[j].publicAccess = conf.general.sharing.publicAccess;
-				}
+			if (obj[j].hasOwnProperty("user")) {
+				obj[j].user = { "id": conf.general.sharing.userId };
 			}
-			else {
-				console.log("Version " + dhis2version + " not supported");
-			}			
+
+			if (obj[j].hasOwnProperty("userAccesses")) {
+				delete obj[j].userAccesses;
+			}
+
+			//IF < 29 then no data access sharing
+			var dataAccessSharing;
+			parseInt(dhis2version.split('.')[1]) < 29 ? dataAccessSharing = false : dataAccessSharing = false;
+				
+			if (obj[j].hasOwnProperty("userGroupAccesses")) {
+				//TODO - option for preseverving existing groups?
+				var userGroupAccessSharing = [];
+				for (var k = 0; k < conf.general.sharing.adminGroupIds.length; k++) {
+					userGroupAccessSharing.push({
+						"access": dataAccessSharing ? "rwr-----" : "rw------", 
+						"id": conf.general.sharing.adminGroupIds[k], 
+						"userGroupUid": conf.general.sharing.adminGroupIds[k]
+					});
+				}
+				for (var k = 0; k < conf.general.sharing.accessGroupIds.length; k++) {
+					userGroupAccessSharing.push({
+						"access": dataAccessSharing ? "r-r-----" : "r-------", 
+						"id": conf.general.sharing.accessGroupIds[k], 
+						"userGroupUid": conf.general.sharing.accessGroupIds[k]
+					});
+				}
+				obj[j].userGroupAccesses = userGroupAccessSharing;
+			}
+			
+			if (obj[j].hasOwnProperty("publicAccess")) {
+				obj[j].publicAccess = conf.general.sharing.publicAccess;
+			}
 		}
 	}
 }

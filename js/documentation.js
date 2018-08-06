@@ -22,6 +22,9 @@ function makeReferenceList(basePath, metaData) {
 
 	var content = "# Metadata reference\n";
 
+	content += metaData.package;
+	referenced["package"] = true;
+
 	//dataset: sections, custom form bool, data elements, uid
 	if (metaData.dataSets && metaData.dataSets.length > 0) {
 		referenced["dataSets"] = true;
@@ -257,6 +260,30 @@ function makeReferenceList(basePath, metaData) {
 		}
 	}
 	
+	//predictors
+	if (metaData.predictors && metaData.predictors.length > 0) {
+		referenced["predictors"] = true;
+		
+		content += "\n## Predictors\n";
+		content += "Name | Generator | Sequential samples | Annual samples | Target data element | Last updated | UID\n";
+		content += "--- | --- | --- | --- | --- | --- | --- \n";
+
+		var pred;
+		for (var i = 0; i < metaData.predictors.length; i++) {
+			pred = metaData.predictors[i];
+
+			var targetName = "";
+			for (var j = 0; metaData.dataElements && j < metaData.dataElements.length; j++) {
+				if (metaData.dataElements[j].id === pred.output.id) targetName = metaData.dataElements[j].name;
+			}
+			content += pred.name + " | ";
+			content += pred.generator.description + " | ";
+			content += pred.sequentialSampleCount + " | ";
+			content += pred.annualSampleCount + " | ";
+			content += targetName + " | ";
+			content += pred.lastUpdated.substr(0,10) + " | " + pred.id + "\n";
+		}
+	}
 
 	//indicator groups
 	if (metaData.validationRuleGroups && metaData.validationRuleGroups.length > 0) {
@@ -289,32 +316,6 @@ function makeReferenceList(basePath, metaData) {
 		}
 	}
 	
-
-	//predictors
-	if (metaData.predictors && metaData.predictors.length > 0) {
-		referenced["predictors"] = true;
-		
-		content += "\n## Predictors\n";
-		content += "Name | Generator | Sequential samples | Annual samples | Target data element | Last updated | UID\n";
-		content += "--- | --- | --- | --- | --- | --- | --- \n";
-
-		var pred;
-		for (var i = 0; i < metaData.predictors.length; i++) {
-			pred = metaData.predictors[i];
-
-			var targetName = "";
-			for (var j = 0; metaData.dataElements && j < metaData.dataElements.length; j++) {
-				if (metaData.dataElements[j].id === pred.output.id) targetName = metaData.dataElements[j].name;
-			}
-			content += pred.name + " | ";
-			content += pred.generator.description + " | ";
-			content += pred.sequentialSampleCount + " | ";
-			content += pred.annualSampleCount + " | ";
-			content += targetName + " | ";
-			content += pred.lastUpdated.substr(0,10) + " | " + pred.id + "\n";
-		}
-	}
-
 	//indicators: name, shortname, description, numeratorDescription, denominatorDescription, type, uid
 	if (metaData.indicators && metaData.indicators.length > 0) {
 		referenced["indicators"] = true;
@@ -580,6 +581,33 @@ function makeReferenceList(basePath, metaData) {
 		}
 	}
 
+	//user groups
+	if (metaData.userGroups && metaData.userGroups.length > 0) {
+		referenced["userGroups"] = true;
+		
+		content += "\n## User Groups\n";
+		content += "Name | Last updated | UID\n";
+		content += "--- | --- | --- \n";
+
+		for (var i = 0; i < metaData.userGroups.length; i++) {
+			var item = metaData.userGroups[i];
+			content += item.name + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+		}
+	}
+
+	//users
+	if (metaData.users && metaData.users.length > 0) {
+		referenced["users"] = true;
+		
+		content += "\n## Users\n";
+		content += "Username | Last updated | UID\n";
+		content += "--- | --- | --- \n";
+
+		for (var i = 0; i < metaData.users.length; i++) {
+			var item = metaData.users[i];
+			content += item.userCredentials.username + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+		}
+	}
 
 	//Check if there are any objects missing. No point aborting, as .json is
 	//already written - but show warning 
