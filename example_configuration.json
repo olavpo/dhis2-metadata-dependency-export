@@ -1,9 +1,22 @@
-{
-  "dhis": {
-    "url": "https://who.dhis2.net/dev"
-  }, 
+{ 
+  "general": {
+    "basePath": "/Users/Olav/Downloads", 
+    "prefix": "[CONFIG]", 
+    "code": "TB", 
+    "sharing": {
+      "accessGroupIds": ["pyu2ZlNKbzQ"],
+      "adminGroupIds": ["Ubzlyfqm1gO"], 
+      "publicAccess": "--------", 
+      "userId": "vUeLeQMSwhN"
+    },
+    "version": "1.0"
+  },
   "export": [
     {
+      "url": [
+        "https://who.dhis2.net/dev", 
+        "https://who.dhis2.net/demo"
+      ],
       "dashboardIds": [
         "w48LnY9Gamc", 
         "BwYHhBSvLNL", 
@@ -29,6 +42,10 @@
       "type": "dashboardAggregate"
     }, 
     {
+      "url": [
+        "https://who.dhis2.net/dev", 
+        "https://who.dhis2.net/demo"
+      ],
       "dashboardIds": [
         "w48LnY9Gamc", 
         "BwYHhBSvLNL", 
@@ -83,17 +100,5 @@
         "xnxqh8hX6Ag"
       ]
     }
-  ], 
-  "general": {
-    "basePath": "/Users/Olav/Downloads", 
-    "placeHolder": "[CONFIG]", 
-    "prefix": "TB", 
-    "sharing": {
-      "accessGroupIds": ["pyu2ZlNKbzQ"],
-      "adminGroupIds": ["Ubzlyfqm1gO"], 
-      "publicAccess": "--------", 
-      "userId": "vUeLeQMSwhN"
-    },
-    "version": "1.0"
-  }
+  ]
 }

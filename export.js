@@ -11,6 +11,7 @@ var utils = require("./js/utils.js");
 
 var metaData;
 var exportQueue = [];
+var lastUrl = '';
 var currentExport;
 var exporting = false;
 
@@ -29,43 +30,33 @@ run();
 function run() {
 	//Read configuration file. Will exit if not found or if not in correct format
 	readConfig();
-	var url = conf.dhis.url;
-	console.log("Server: " + url);
 
+	var dhis2Instances = {};
 
-	//Start prompt
-	prompt.start();
-	
-	var schema = {
-		properties: {
-			username: {
-				required: true
-			},
-			password: {
-				hidden: true,
-				required: true
+	//Iterate over complete export file, and sort exports per server (to avoid asking for user/pwd multiple times)
+	for (var i = 0; i < conf.export.length; i++) {
+		for (var j = 0; j < conf.export[i].url.length; j++) {
+			if (!dhis2Instances[conf.export[i].url[j]]) {
+				dhis2Instances[conf.export[i].url[j]] = [conf.export[i]];
+			}
+			else {
+				dhis2Instances[conf.export[i].url[j]].push(conf.export[i]);
 			}
 		}
-	};
-	
-	prompt.get(schema, function (err, result) {		
-		d2.authentication(conf.dhis.url, result.username, result.password);
-		
-		d2.get("/api/system/info.json").then(function(result) {
-			console.log("\nConnected to instance: " + result.systemName);
-			console.log("DHIS2 version: " + result.version);
-			
-			dhis2version = result.version;
-			
-			for (var i = 0; i < conf.export.length; i++) {
-				exportQueue.push(conf.export[i]);
-			}
-	
-			nextExport();
-		});
-	});  	
-}
+	}
+	for (var instance in dhis2Instances) {
+		for (var i = 0; i < dhis2Instances[instance].length; i++) {
 
+			//Copy export specification, then specify the URL
+			var exp = JSON.parse(JSON.stringify(dhis2Instances[instance][i]));
+			exp.url = instance;
+			exportQueue.push(exp);
+		}
+	}
+
+	nextExport();
+
+}
 
 /**
  * Read configuration file as commandline argument
@@ -88,8 +79,7 @@ function readConfig() {
 			process.exit(1);
 		}
 		
-		if (!conf.hasOwnProperty("dhis") || !conf.hasOwnProperty("export") ||
-		!conf.hasOwnProperty("general")) {
+		if (!conf.hasOwnProperty("export") || !conf.hasOwnProperty("general")) {
 			console.log("Configuration file does not have a valid structure");
 			process.exit(1);
 		}
@@ -113,10 +103,59 @@ function nextExport() {
 	}
 	else {
 		exporting = true;
-		console.log("\n***** Packaging " + currentExport.name + " *****");
 	}
 
+	//If next export is a new URL, ask for username and password. Else start export directly
+	if (currentExport.url == lastUrl) startExport();
+	else connectNewInstance();
+
+}
+
+
+
+function connectNewInstance() {
+
+	console.log("\n##### Connecting to DHIS2 #####")
+	console.log("Server: " + currentExport.url);
+
+
+	//Start prompt
+	prompt.start();
+	
+	var schema = {
+		properties: {
+			username: {
+				required: true
+			},
+			password: {
+				hidden: true,
+				required: true
+			}
+		}
+	};
+	
+	prompt.get(schema, function (err, result) {		
+		d2.authentication(currentExport.url, result.username, result.password);
+		
+		d2.get("/api/system/info.json").then(function(result) {
+			console.log("\nConnected to instance: " + result.systemName);
+			console.log("DHIS2 version: " + result.version);
+
+			lastUrl = currentExport.url;
+			dhis2version = result.version;
+			
+			startExport();
+
+		});
+	});  	
+}
+
+
+function startExport() {
 	metaData = {};
+
+	console.log("\n***** Packaging " + currentExport.name + " *****");
+
 	if (currentExport.type === "completeAggregate") {
 		exportAggregate();
 	}
@@ -286,6 +325,8 @@ function exportAggregate() {
 	they need to be added to a data set to be included.
 	*/
 		
+	console.log("1. Downloading metadata");	
+
 	//Do initial dependency export
 	var promises = [
 		dependencyExport("dataSet", currentExport.dataSetIds), 
@@ -781,7 +822,7 @@ function removeOwnership() {
 function prefixIndicators() {
 	if (!metaData.indicators) return;
 	for (var indicator of metaData.indicators) {
-		indicator.name = currentExport.placeHolder + " " + indicator.name;
+		indicator.name = currentExport.prefix + " " + indicator.name;
 	}
 }
 
@@ -790,7 +831,7 @@ function prefixIndicators() {
 function prefixCategoryOptionGroups() {
 	if (!metaData.categoryOptionGroups) return;
 	for (var group of metaData.categoryOptionGroups) {
-		group.name = currentExport.placeHolder + " " + group.name;
+		group.name = currentExport.prefix + " " + group.name;
 	}
 }
 
@@ -1212,7 +1253,7 @@ function packageLabel() {
 		break;
 	}
 
-	var identifier = conf.general.prefix;
+	var identifier = conf.general.code;
 	identifier += "_" + type;
 	identifier += "_V" + conf.general.version;
 	identifier += "_DHIS" + dhis2version;
