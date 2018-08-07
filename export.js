@@ -35,12 +35,12 @@ function run() {
 
 	//Iterate over complete export file, and sort exports per server (to avoid asking for user/pwd multiple times)
 	for (var i = 0; i < conf.export.length; i++) {
-		for (var j = 0; j < conf.export[i].url.length; j++) {
-			if (!dhis2Instances[conf.export[i].url[j]]) {
-				dhis2Instances[conf.export[i].url[j]] = [conf.export[i]];
+		for (var j = 0; j < conf.export[i]._url.length; j++) {
+			if (!dhis2Instances[conf.export[i]._url[j]]) {
+				dhis2Instances[conf.export[i]._url[j]] = [conf.export[i]];
 			}
 			else {
-				dhis2Instances[conf.export[i].url[j]].push(conf.export[i]);
+				dhis2Instances[conf.export[i]._url[j]].push(conf.export[i]);
 			}
 		}
 	}
@@ -69,8 +69,9 @@ function readConfig() {
 	}
 	else {
 		var fileName = process.argv[2];
+		console.log(fileName);
 		try {
-			conf = require(fileName);
+			conf = JSON.parse(fs.readFileSync(fileName, 'utf8'));
 		}
 		catch (err) {
 			console.log("Problem reading configuration file: " + fileName);
@@ -79,7 +80,7 @@ function readConfig() {
 			process.exit(1);
 		}
 		
-		if (!conf.hasOwnProperty("export") || !conf.hasOwnProperty("general")) {
+		if (!conf.hasOwnProperty("export")) {
 			console.log("Configuration file does not have a valid structure");
 			process.exit(1);
 		}
@@ -154,13 +155,13 @@ function connectNewInstance() {
 function startExport() {
 	metaData = {};
 
-	console.log("\n***** Packaging " + currentExport.name + " *****");
+	console.log("\n***** Packaging " + currentExport._name + " *****");
 
-	if (currentExport.type === "completeAggregate") {
+	if (currentExport._type === "completeAggregate") {
 		exportAggregate();
 	}
 
-	else if (currentExport.type === "dashboardAggregate") {
+	else if (currentExport._type === "dashboardAggregate") {
 		exportDashboard();
 	}
 }
@@ -168,7 +169,7 @@ function startExport() {
 
 
 function cancelCurrentExport() {
-	console.log("\n✘ Cancelling export '" + currentExport.name + "' due to errors.\n");
+	console.log("\n✘ Cancelling export '" + currentExport._name + "' due to errors.\n");
 	exporting = false;
 	nextExport();
 }
@@ -197,9 +198,9 @@ function exportDashboard() {
 			indicators(), 
 			categoryOptionGroupSetStructure(),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
-			saveObject("userGroups", [].concat(conf.general.sharing.accessGroupIds, 
-				conf.general.sharing.adminGroupIds)),
-			saveObject("users", [conf.general.sharing.userId])
+			saveObject("userGroups", [].concat(currentExport._sharing.accessGroupIds, 
+				currentExport._sharing.adminGroupIds)),
+			saveObject("users", [currentExport._sharing.userId])
 		];
 		Q.all(promises).then(function (results) {
 
@@ -345,9 +346,9 @@ function exportAggregate() {
 			validationRules(),
 			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
-			saveObject("userGroups", [].concat(conf.general.sharing.accessGroupIds, 
-				conf.general.sharing.adminGroupIds)),
-			saveObject("users", [conf.general.sharing.userId])
+			saveObject("userGroups", [].concat(currentExport._sharing.accessGroupIds, 
+				currentExport._sharing.adminGroupIds)),
+			saveObject("users", [currentExport._sharing.userId])
 		];
 		Q.all(promises).then(function (results) {
 
@@ -413,7 +414,7 @@ function processAggregate() {
 	if (!validationDataSetSections()) success = false;
 	
 	if (success) {
-		console.log("Ready to save " + currentExport.name);
+		console.log("Ready to save " + currentExport._name);
 		saveAggregate();
 	}
 	else {
@@ -766,7 +767,7 @@ function clearCategoryOptionGroups() {
 function clearUserGroups() {
 	for (var i = 0; metaData.userGroups && i < metaData.userGroups.length; i++) {
 		metaData.userGroups[i].users = [
-			{ "id": conf.general.sharing.userId }
+			{ "id": currentExport._sharing.userId }
 		];
 	}
 }
@@ -779,7 +780,7 @@ function removeOwnership() {
 		for (var j = 0; j < obj.length; j++) {
 		
 			if (obj[j].hasOwnProperty("user")) {
-				obj[j].user = { "id": conf.general.sharing.userId };
+				obj[j].user = { "id": currentExport._sharing.userId };
 			}
 
 			if (obj[j].hasOwnProperty("userAccesses")) {
@@ -793,25 +794,25 @@ function removeOwnership() {
 			if (obj[j].hasOwnProperty("userGroupAccesses")) {
 				//TODO - option for preseverving existing groups?
 				var userGroupAccessSharing = [];
-				for (var k = 0; k < conf.general.sharing.adminGroupIds.length; k++) {
+				for (var k = 0; k < currentExport._sharing.adminGroupIds.length; k++) {
 					userGroupAccessSharing.push({
 						"access": dataAccessSharing ? "rwr-----" : "rw------", 
-						"id": conf.general.sharing.adminGroupIds[k], 
-						"userGroupUid": conf.general.sharing.adminGroupIds[k]
+						"id": currentExport._sharing.adminGroupIds[k], 
+						"userGroupUid": currentExport._sharing.adminGroupIds[k]
 					});
 				}
-				for (var k = 0; k < conf.general.sharing.accessGroupIds.length; k++) {
+				for (var k = 0; k < currentExport._sharing.accessGroupIds.length; k++) {
 					userGroupAccessSharing.push({
 						"access": dataAccessSharing ? "r-r-----" : "r-------", 
-						"id": conf.general.sharing.accessGroupIds[k], 
-						"userGroupUid": conf.general.sharing.accessGroupIds[k]
+						"id": currentExport._sharing.accessGroupIds[k], 
+						"userGroupUid": currentExport._sharing.accessGroupIds[k]
 					});
 				}
 				obj[j].userGroupAccesses = userGroupAccessSharing;
 			}
 			
 			if (obj[j].hasOwnProperty("publicAccess")) {
-				obj[j].publicAccess = conf.general.sharing.publicAccess;
+				obj[j].publicAccess = currentExport._sharing.publicAccess;
 			}
 		}
 	}
@@ -1241,7 +1242,7 @@ function mapFromMapView(mapViewId) {
 //Get package "label"
 function packageLabel() {
 	var type = "";
-	switch (currentExport.type) {
+	switch (currentExport._type) {
 	case "completeAggregate": 
 		type = "COMPLETE";
 		break;
@@ -1253,9 +1254,9 @@ function packageLabel() {
 		break;
 	}
 
-	var identifier = conf.general.code;
+	var identifier = currentExport._code;
 	identifier += "_" + type;
-	identifier += "_V" + conf.general.version;
+	identifier += "_V" + currentExport._version;
 	identifier += "_DHIS" + dhis2version;
 	
 	return identifier;
@@ -1266,7 +1267,7 @@ function packageLabel() {
 //Make folder
 function makeFolder() {
 
-	var basePath = conf.general.basePath + "/" + packageLabel();
+	var basePath = currentExport._basePath + "/" + packageLabel();
 	
 	try {
 		fs.mkdirSync(basePath);

@@ -1,22 +1,26 @@
-{ 
-  "general": {
-    "basePath": "/Users/Olav/Downloads", 
-    "prefix": "[CONFIG]", 
-    "code": "TB", 
-    "sharing": {
-      "accessGroupIds": ["pyu2ZlNKbzQ"],
-      "adminGroupIds": ["Ubzlyfqm1gO"], 
-      "publicAccess": "--------", 
-      "userId": "vUeLeQMSwhN"
-    },
-    "version": "1.0"
-  },
+{
   "export": [
     {
-      "url": [
+      "_basePath": "../", 
+      "_code": "TB", 
+      "_name": "TB dashboard", 
+      "_prefix": "[CONFIG]", 
+      "_sharing": {
+        "accessGroupIds": [
+          "pyu2ZlNKbzQ"
+        ], 
+        "adminGroupIds": [
+          "Ubzlyfqm1gO"
+        ], 
+        "publicAccess": "--------", 
+        "userId": "vUeLeQMSwhN"
+      }, 
+      "_type": "dashboardAggregate", 
+      "_url": [
         "https://who.dhis2.net/dev", 
         "https://who.dhis2.net/demo"
-      ],
+      ], 
+      "_version": "1.0.BETA", 
       "dashboardIds": [
         "w48LnY9Gamc", 
         "BwYHhBSvLNL", 
@@ -34,18 +38,32 @@
       "indicatorGroupIds": [
         "V4SoC7TzFMi", 
         "OMyYjoU07pC", 
-        "QCrsjqhAcWA",
-        "S0n1torLnUz",
+        "QCrsjqhAcWA", 
+        "S0n1torLnUz", 
         "I13HBLJTJMb"
-      ],
-      "name": "TB dashboard", 
-      "type": "dashboardAggregate"
+      ]
     }, 
     {
-      "url": [
+      "_basePath": "../", 
+      "_code": "TB", 
+      "_name": "TB complete", 
+      "_prefix": "[CONFIG]", 
+      "_sharing": {
+        "accessGroupIds": [
+          "pyu2ZlNKbzQ"
+        ], 
+        "adminGroupIds": [
+          "Ubzlyfqm1gO"
+        ], 
+        "publicAccess": "--------", 
+        "userId": "vUeLeQMSwhN"
+      }, 
+      "_type": "completeAggregate", 
+      "_url": [
         "https://who.dhis2.net/dev", 
         "https://who.dhis2.net/demo"
-      ],
+      ], 
+      "_version": "1.0.BETA", 
       "dashboardIds": [
         "w48LnY9Gamc", 
         "BwYHhBSvLNL", 
@@ -64,7 +82,7 @@
         "aGtzAAao0Mt", 
         "m54T3OptLaU", 
         "fAS1m0weZsf", 
-        "V4Ctf7L4wq6",
+        "V4Ctf7L4wq6", 
         "gDwHOp9bAdJ"
       ], 
       "dataSetIds": [
@@ -85,12 +103,10 @@
       "indicatorGroupIds": [
         "V4SoC7TzFMi", 
         "OMyYjoU07pC", 
-        "QCrsjqhAcWA",
-        "S0n1torLnUz",
+        "QCrsjqhAcWA", 
+        "S0n1torLnUz", 
         "I13HBLJTJMb"
       ], 
-      "name": "TB complete", 
-      "type": "completeAggregate", 
       "validationRuleGroupIds": [
         "iRCrvkyr4uw", 
         "sgf2zdOiwny", 

@@ -40,30 +40,27 @@ Within this folder, there will be 3 or 4 files depending on the package type:
 
 
 ### Configuration
-The export script relies on a configuration file in .json format. The configuration file has one part with common information about the package(s) being exported (under `"general"`), and one part where the specific content to be included in the package(s) and the server to fetch data from is specified.
+The export script relies on a configuration file in .json format. The configuration file consiste of an array of json objects specifying packages.
 
 ```
 { 
-  "general": {
-    "basePath": "/Users/Olav/Downloads",    //Path to where folder(s) with metadata and documentation will be stored
-    "prefix": "[CONFIG]",                   //Prefix for indicators etc that needs post-import configuration. Relevant for dashboard packages only.
-    "code": "TB",                           //Code for the package(s), used for naming the export folder and creating a package identifier
-    "version": "1.0",                       //Version of the package(s)
-    "sharing": {                            //Sharing setting that will be applied to all metadata in the export, overwriting existing sharing
-      "accessGroupIds": ["pyu2ZlNKbzQ"],    //User groups with metadata and data view access. Groups will be included in the export.
-      "adminGroupIds": ["Ubzlyfqm1gO"],     //User groups with metadata edit and data view access. Groups will be included in the export.
-      "publicAccess": "--------",           //Public access
-      "userId": "vUeLeQMSwhN"               //User which will be set as owner of all metadata. User will be included in the export.
-    }
-  },
-  "export": [                               //Array specifying the metadata packages to export
-    {                                       //Example of "dashboard" package
-      "url": [                              //Array of URLs of the server to export from. Multiple are allowed so that the same metadata can be exported from instances running different DHIS2 versions.
+  "export": [                                   //Array specifying the metadata packages to export
+    {                                           //Example of "dashboard" package
+      "_basePath": "/Users/Olav/Downloads",     //Path to where folder(s) with metadata and documentation will be stored
+      "_prefix": "[CONFIG]",                    //Prefix for indicators etc that needs post-import configuration. Relevant for dashboard packages only.
+      "_code": "TB",                            //Code for the package(s), used for naming the export folder and creating a package identifier
+      "_version": "1.0",                        //Version of the package(s)
+      "_sharing": {                             //Sharing setting that will be applied to all metadata in the export, overwriting existing sharing
+        "accessGroupIds": ["pyu2ZlNKbzQ"],      //User groups with metadata and data view access. Groups will be included in the export.
+        "adminGroupIds": ["Ubzlyfqm1gO"],       //User groups with metadata edit and data view access. Groups will be included in the export.
+        "publicAccess": "--------",             //Public access
+        "userId": "vUeLeQMSwhN",                //User which will be set as owner of all metadata. User will be included in the export.
+      "_url": [                                 //Array of URLs of the server to export from. Multiple are allowed so that the same metadata can be exported from instances running different DHIS2 versions.
         "https://who.dhis2.net/dev", 
         "https://who.dhis2.net/demo"
       ],
-      "name": "TB dashboard",               //Name of the package, used in documentation, logging etc
-      "type": "dashboardAggregate",         //Type of export. Current options are "dashboardAggregate" or "completeAggregate"
+      "_name": "TB dashboard",                  //Name of the package, used in documentation, logging etc
+      "_type": "dashboardAggregate",            //Type of export. Current options are "dashboardAggregate" or "completeAggregate"
       "dashboardIds": [                     //IDs of dashboards to export, including dependencies, i.e. favourites and indicators used in those favourites
         "w48LnY9Gamc", 
         ...
@@ -77,13 +74,22 @@ The export script relies on a configuration file in .json format. The configurat
           ...
       ]
     }, 
-    {                                       //Example of "dashboard" package
-      "url": [                              //Array of URLs of the server to export from. Multiple are allowed so that the same metadata can be exported from instances running different DHIS2 versions.
+    {                                           //Example of "dashboard" package
+      "_basePath": "/Users/Olav/Downloads",     //Path to where folder(s) with metadata and documentation will be stored
+      "_prefix": "[CONFIG]",                    //Prefix for indicators etc that needs post-import configuration. Relevant for dashboard packages only.
+      "_code": "TB",                            //Code for the package(s), used for naming the export folder and creating a package identifier
+      "_version": "1.0",                        //Version of the package(s)
+      "_sharing": {                             //Sharing setting that will be applied to all metadata in the export, overwriting existing sharing
+        "accessGroupIds": ["pyu2ZlNKbzQ"],      //User groups with metadata and data view access. Groups will be included in the export.
+        "adminGroupIds": ["Ubzlyfqm1gO"],       //User groups with metadata edit and data view access. Groups will be included in the export.
+        "publicAccess": "--------",             //Public access
+        "userId": "vUeLeQMSwhN",                //User which will be set as owner of all metadata. User will be included in the export.
+      "_url": [                                 //Array of URLs of the server to export from. Multiple are allowed so that the same metadata can be exported from instances running different DHIS2 versions.
         "https://who.dhis2.net/dev", 
         "https://who.dhis2.net/demo"
       ],
-      "name": "TB complete",                //As above
-      "type": "completeAggregate",          //As above
+      "_name": "TB complete",                   //As above
+      "_type": "completeAggregate",             //As above
       "dashboardIds": [                     //As above
         "w48LnY9Gamc", 
         ...
