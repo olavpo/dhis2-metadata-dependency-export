@@ -72,7 +72,7 @@ The export script relies on a configuration file in .json format. The configurat
         "V4SoC7TzFMi", 
         ...
       ],
-      "exportIndicatorGroupsIds": [         //IDs of indicator groups for which indicators will be exported (as opposed to the above)
+      "exportIndicatorGroupsIds": [         //IDs of indicator groups for which indicators will be exported (as opposed to the above). The group itself will not be included unless it is also added to "indicatorGroupIds".
           "F6Sofd7TgMi",
           ...
       ]
@@ -118,15 +118,9 @@ The export script relies on a configuration file in .json format. The configurat
 
 ## Misc
 `d2metapack` bash script is included as example of how to add the export script 
-to your PATH, so that it can be run like `d2metapath hivConfig.json` (where `hivConfig.json` is a configuration file as described above).
+to your PATH, so that it can be run like `d2metapack ./hivConfig.json` (where `./hivConfig.json` is a configuration file as described above).
 
 
 ## To-do
-
-
-
-
-
-
-
+* Support for tracker metadata packages
 
