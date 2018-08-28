@@ -164,6 +164,10 @@ function startExport() {
 	else if (currentExport._type === "dashboardAggregate") {
 		exportDashboard();
 	}
+
+	else if (currentExport._type === "tracker") {
+		exportTracker();
+	}
 }
 
 
@@ -428,6 +432,8 @@ function processAggregate() {
  */
 function saveAggregate() {
 
+	console.log("\n3. Saving metadata and documentation");
+
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);
 	
@@ -450,6 +456,152 @@ function saveAggregate() {
 	});
 }
 
+
+
+
+/**
+ * TRACKER EXPORT
+ **/
+ 
+/**
+ * Start export of complete aggregate packages: dataset and dashboards with deps
+ */
+function exportTracker() {
+	/*
+	Only data element in datasets included. Include config option for "placeholder"
+	datasets that is only used to get dependencies, but where the actual dataset is not 
+	included in the export file. This also includes other data elements used in 
+	indicators, like those for population.
+	
+	Favourites and indicator formulas should still be checked for data elements, 
+	category option groups, legend sets etc. For legend sets, category option groups etc
+	they should be included, but for data elements we should only show a warning that 
+	they need to be added to a data set to be included.
+	*/
+		
+	console.log("1. Downloading metadata");	
+
+	//Do initial dependency export
+	var promises = [
+		dependencyExport("program", currentExport.programIds), 
+		dependencyExport("dashboard", currentExport.dashboardIds)
+	];
+	Q.all(promises).then(function (results) {
+				
+		
+		//Get indicators and categoryOptionGroupSets from favourites and groups
+		//Get validation rules and groups from conf file
+		//Get data element and indicator groups from conf files
+		promises = [
+			indicators(), 
+			categoryOptionGroupSetStructure(),
+			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
+			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
+			saveObject("userGroups", [].concat(currentExport._sharing.accessGroupIds, 
+				currentExport._sharing.adminGroupIds)),
+			saveObject("users", [currentExport._sharing.userId])
+		];
+		Q.all(promises).then(function (results) {
+
+			//Get legends from data elements, indicators and favourites
+			//Get indicator types from indicators
+			//Get predictors based on data elements
+			promises = [
+				indicatorTypes(), 
+				legendSets(), 
+				predictors()
+			];
+			Q.all(promises).then(function (results) {
+				
+				processTracker();
+			
+			});	
+			
+		});
+		
+	});
+				
+}
+
+
+/**
+ * Verify, modify and save tracker package
+ */
+function processTracker() {
+
+	var success = true;
+	console.log("\n2. Validating exported metadata");
+	
+	//Remove ownership
+	removeOwnership();
+
+	//Remove users from user groups
+	clearUserGroups();
+		
+	//Make sure the "default defaults" are used
+	setDefaultUid();
+	
+	//Make sure we don't include orgunit assigment in datasets or users
+	clearOrgunitAssignment();
+	
+	//Verify that all data elements referred in indicators, validation rules,
+	//predictors are included
+	if (!validateDataElementReference()) success = false;
+
+	//Remove invalid references to data elements or indicators from groups
+	//Verify that there are no data elements or indicators without groups
+	if (!validateGroupReferences()) success = false;	
+	
+	//Verify that favourites only use relative orgunits
+	if (!validateFavoriteOrgunits()) success = false;
+	
+	//Verify that favourites only use indicators
+	if (!validateFavoriteDataItems()) success = false;
+	
+	//Verify that no unsupported data dimensions are used
+	if (!validateFavoriteDataDimension()) success = false;
+
+	//Verify that data sets with section include all data elements
+	if (!validationDataSetSections()) success = false;
+	
+	if (success) {
+		console.log("Ready to save " + currentExport._name);
+		saveTracker();
+	}
+	else {
+		cancelCurrentExport();
+	}
+}
+
+
+/**
+ * Save tracker package
+ */
+function saveTracker() {
+
+	console.log("\n3. Saving metadata and documentation");
+
+	//Sort the content of our package
+	metaData = utils.sortMetaData(metaData);
+	
+	//Make a folder for storing the files in this package
+	var basePath = makeFolder();	
+	
+	//Add "ID" - package identifier + date
+	metaData["package"] = packageLabel() + "_" + new Date().toISOString();
+	
+	
+	//Save metadata to json file and documentation to markdown files
+	Q.all([
+		utils.saveFileJson(basePath + "/metaData", metaData),	
+		doc.makeReferenceList(basePath + "/", metaData),
+		doc.makeAvailabilityChecklist(basePath + "/", metaData)
+	]).then(function(results) {
+		exporting = false;
+		nextExport();
+		
+	});
+}
 
 
 
@@ -491,6 +643,10 @@ function dependencyExport(type, ids) {
 			break;
 		case "dashboard": 
 			promises.push(d2.get("/api/dashboards/" + id + 
+					"/metadata.json?attachment=metadataDependency.json"));
+			break;
+		case "program": 
+			promises.push(d2.get("/api/programs/" + id + 
 					"/metadata.json?attachment=metadataDependency.json"));
 			break;
 		default:
@@ -597,7 +753,7 @@ function categoryOptionGroupSetStructure() {
 	var deferred = Q.defer();
 
 	var ids = [];
-	for (var type of ["charts", "mapViews", "reportTables"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			if (item.hasOwnProperty("categoryOptionGroupSetDimensions")) {
@@ -675,7 +831,7 @@ function predictors() {
 function legendSets() {
 	
 	//LegendSets from applicable object types
-	var types = ["charts", "mapViews", "reportTables", "dataSets", 
+	var types = ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "dataSets", 
 			"dataElements", "indicators"], ids = [];
 	for (var k = 0; k < types.length; k++) {
 		for (var i = 0; metaData.hasOwnProperty(types[k]) && i < metaData[types[k]].length; i++) {
@@ -730,11 +886,15 @@ function setDefaultUid() {
 }
 
 /**
- * Clear assignment of orgnuits of dataSets and users.
+ * Clear assignment of orgnuits of dataSets, programs and users.
  */
 function clearOrgunitAssignment() {
 	for (var i = 0; metaData.dataSets && i < metaData.dataSets.length; i++) {
 		metaData.dataSets[i].organisationUnits = [];
+	}
+
+	for (var i = 0; metaData.programs && i < metaData.programs.length; i++) {
+		metaData.programs[i].organisationUnits = [];
 	}
 
 	for (var i = 0; metaData.users && i < metaData.users.length; i++) {
@@ -844,7 +1004,7 @@ function prefixCategoryOptionGroups() {
 function validateFavoriteOrgunits() {
 
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			var nameableItem = (type == "mapViews") ? mapFromMapView(item.id) : item;
@@ -939,7 +1099,7 @@ function validateFavoriteDataItems() {
 function validateFavoriteDataDimension() {
 	
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			var nameableItem;
