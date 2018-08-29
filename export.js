@@ -11,7 +11,7 @@ var utils = require("./js/utils.js");
 
 var metaData;
 var exportQueue = [];
-var lastUrl = '';
+var lastUrl = "";
 var currentExport;
 var exporting = false;
 
@@ -71,7 +71,7 @@ function readConfig() {
 		var fileName = process.argv[2];
 		console.log(fileName);
 		try {
-			conf = JSON.parse(fs.readFileSync(fileName, 'utf8'));
+			conf = JSON.parse(fs.readFileSync(fileName, "utf8"));
 		}
 		catch (err) {
 			console.log("Problem reading configuration file: " + fileName);
@@ -116,7 +116,7 @@ function nextExport() {
 
 function connectNewInstance() {
 
-	console.log("\n##### Connecting to DHIS2 #####")
+	console.log("\n##### Connecting to DHIS2 #####");
 	console.log("Server: " + currentExport.url);
 
 
@@ -297,7 +297,7 @@ function saveDashboard() {
 	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + "/metaData", metaData),	
+		utils.saveFileJson(basePath + "/metadata", metaData),	
 		doc.makeReferenceList(basePath + "/", metaData),
 		doc.makeConfigurationChecklist(basePath + "/", metaData),
 		doc.makeAvailabilityChecklist(basePath + "/", metaData),		
@@ -446,7 +446,7 @@ function saveAggregate() {
 	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + "/metaData", metaData),	
+		utils.saveFileJson(basePath + "/metadata", metaData),	
 		doc.makeReferenceList(basePath + "/", metaData),
 		doc.makeAvailabilityChecklist(basePath + "/", metaData)
 	]).then(function(results) {
@@ -479,6 +479,7 @@ function exportTracker() {
 	they need to be added to a data set to be included.
 	*/
 		
+
 	console.log("1. Downloading metadata");	
 
 	//Do initial dependency export
@@ -548,6 +549,9 @@ function processTracker() {
 	//predictors are included
 	if (!validateDataElementReference()) success = false;
 
+	//Verify that all program indicators referred to in indicators and predictors are included
+	if (!validateProgramIndicatorReference()) success = false;
+
 	//Remove invalid references to data elements or indicators from groups
 	//Verify that there are no data elements or indicators without groups
 	if (!validateGroupReferences()) success = false;	
@@ -563,6 +567,13 @@ function processTracker() {
 
 	//Verify that data sets with section include all data elements
 	if (!validationDataSetSections()) success = false;
+
+
+	/** CUSTOM MODIFICATIONS */
+	for (var customFunc of currentExport._customFuncs) {
+		var func = new Function("metaData", customFunc);
+		func(metaData); 
+	}
 	
 	if (success) {
 		console.log("Ready to save " + currentExport._name);
@@ -593,9 +604,8 @@ function saveTracker() {
 	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + "/metaData", metaData),	
-		doc.makeReferenceList(basePath + "/", metaData),
-		doc.makeAvailabilityChecklist(basePath + "/", metaData)
+		utils.saveFileJson(basePath + "/metadata", metaData),	
+		doc.makeReferenceList(basePath + "/", metaData)
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
@@ -1218,6 +1228,52 @@ function validateDataElementReference() {
 	
 	if (missing.length > 0) {
 		console.log("\nERROR | Data elements referenced, but not included in export:");
+		for (var issue of missing) {
+			console.log(issue.id + " referenced in " + issue.type);
+		}
+		return false;
+	}
+	else return true;
+}
+
+
+//Check if predictor or indicator formulas references program indicators that are not
+//part of the export
+function validateProgramIndicatorReference() {
+	var ids = {};
+
+
+	//Program indicators from indicator formulas
+	var result;
+	for (var i = 0; i < metaData.indicators.length; i++) {
+		result = utils.programIndicatorIdsFromIndicatorFormula(metaData.indicators[i].numerator, 
+			metaData.indicators[i].denominator);
+			
+		for (var j = 0; j < result.length; j++) {
+			ids[result[j]] = "indicator " + metaData.indicators[i].id;
+		}
+	}
+	
+	//Program indicators from predictor formulas
+	for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
+		result = utils.programIndicatorIdsFromFormula(
+			metaData.predictors[i].generator.expression
+		);
+			
+		for (var j = 0; j < result.length; j++) {
+			ids[result[j]] = "predictor " + metaData.predictors[i].id;
+		}
+	}
+	
+	var missing = [];
+	for (var id in ids) {
+		if (!objectExists("programIndicators", id)) {
+			missing.push({"id": id, "type": ids[id]});
+		}
+	}
+	
+	if (missing.length > 0) {
+		console.log("\nERROR | Program indicators referenced, but not included in export:");
 		for (var issue of missing) {
 			console.log(issue.id + " referenced in " + issue.type);
 		}

@@ -8,7 +8,9 @@ module.exports.sortMetaData = sortMetaData;
 module.exports.htmlTableFromArray = htmlTableFromArray;
 module.exports.plainIdsFromObjects = plainIdsFromObjects;
 module.exports.idsFromIndicatorFormula = idsFromIndicatorFormula;
+module.exports.programIndicatorIdsFromIndicatorFormula = programIndicatorIdsFromIndicatorFormula;
 module.exports.idsFromFormula = idsFromFormula;
+module.exports.programIndicatorIdsFromFormula = programIndicatorIdsFromFormula;
 module.exports.arrayRemoveDuplicates = arrayRemoveDuplicates;
 module.exports.arrayMerge = arrayMerge;
 module.exports.isArray = isArray;
@@ -119,6 +121,20 @@ function idsFromIndicatorFormula(numeratorFormula, denominatorFormula, dataEleme
 
 
 
+function programIndicatorIdsFromIndicatorFormula(numeratorFormula, denominatorFormula) {
+
+	var matches = arrayMerge(numeratorFormula.match(/I{\w{11}}/g), denominatorFormula.match(/I{\w{11}}/g));
+	if (!matches) return [];
+
+	for (var i = 0; i < matches.length; i++ ) {
+		matches[i] = matches[i].slice(2, -1);
+	}
+
+	return arrayRemoveDuplicates(matches);
+}
+
+
+
 function idsFromFormula(formula, dataElementOnly) {
 
 	var matches = formula.match(/#{(.*?)}/g);
@@ -132,6 +148,18 @@ function idsFromFormula(formula, dataElementOnly) {
 	return arrayRemoveDuplicates(matches);
 }
 
+
+function programIndicatorIdsFromFormula(numeratorFormula, denominatorFormula) {
+
+	var matches = formula.match(/I{\w{11}}/g);
+	if (!matches) return [];
+
+	for (var i = 0; i < matches.length; i++ ) {
+		matches[i] = matches[i].slice(2, -1);
+	}
+
+	return arrayRemoveDuplicates(matches);
+}
 
 
 function arrayRemoveDuplicates(array, property) {
