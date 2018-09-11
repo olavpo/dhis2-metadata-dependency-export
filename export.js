@@ -993,7 +993,7 @@ function removeOwnership() {
 function prefixIndicators() {
 	if (!metaData.indicators) return;
 	for (var indicator of metaData.indicators) {
-		indicator.name = currentExport.prefix + " " + indicator.name;
+		indicator.name = currentExport._prefix + " " + indicator.name;
 	}
 }
 
@@ -1002,7 +1002,7 @@ function prefixIndicators() {
 function prefixCategoryOptionGroups() {
 	if (!metaData.categoryOptionGroups) return;
 	for (var group of metaData.categoryOptionGroups) {
-		group.name = currentExport.prefix + " " + group.name;
+		group.name = currentExport._prefix + " " + group.name;
 	}
 }
 
@@ -1169,13 +1169,13 @@ function validateFavoriteDataDimension() {
 }
 
 
-//Check if predictor or indicator formulas references data elements that are not
+//Check if predictor or indicator formulas references data elements or data sets that are not
 //part of the export
 function validateDataElementReference() {
 	var ids = {};
 
 
-	//Data elements from indicator formulas
+	//Data elements/data sets from indicator formulas
 	var result;
 	for (var i = 0; i < metaData.indicators.length; i++) {
 		result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator, 
@@ -1186,7 +1186,7 @@ function validateDataElementReference() {
 		}
 	}
 	
-	//Data elements from predictor formulas
+	//Data elements/data sets from predictor formulas
 	for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
 		result = utils.idsFromFormula(
 			metaData.predictors[i].generator.expression, 
@@ -1198,7 +1198,7 @@ function validateDataElementReference() {
 		}
 	}
 	
-	//Data elements from validation rule formulas
+	//Data elements/data sets from validation rule formulas
 	for (var i = 0; metaData.validationRules && i < metaData.validationRules.length; i++) {
 		result = utils.idsFromFormula(
 			metaData.validationRules[i].leftSide.expression, 
@@ -1221,13 +1221,13 @@ function validateDataElementReference() {
 	
 	var missing = [];
 	for (var id in ids) {
-		if (!objectExists("dataElements", id)) {
+		if (!objectExists("dataElements", id) && !objectExists("dataSets", id)) {
 			missing.push({"id": id, "type": ids[id]});
 		}
 	}
 	
 	if (missing.length > 0) {
-		console.log("\nERROR | Data elements referenced, but not included in export:");
+		console.log("\nERROR | Data elements/data sets referenced, but not included in export:");
 		for (var issue of missing) {
 			console.log(issue.id + " referenced in " + issue.type);
 		}
