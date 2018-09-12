@@ -13,6 +13,7 @@ var metaData;
 var exportQueue = [];
 var lastUrl = "";
 var currentExport;
+var customObjectsExported = {};
 var exporting = false;
 
 var dhis2version; 
@@ -72,20 +73,20 @@ function readConfig() {
 		conf = { "export": []};
 		for (var i = 2; i < process.argv.length; i++) {
 			var fileName = process.argv[i];
-		try {
+			try {
 				thisConf = JSON.parse(fs.readFileSync(fileName, "utf8"));
-		}
-		catch (err) {
-			console.log("Problem reading configuration file: " + fileName);
-			console.log(err);
-			console.log("Please provide a valid path to the configuration file");
-			process.exit(1);
-		}
-		
+			}
+			catch (err) {
+				console.log("Problem reading configuration file: " + fileName);
+				console.log(err);
+				console.log("Please provide a valid path to the configuration file");
+				process.exit(1);
+			}
+			
 			if (!thisConf.hasOwnProperty("export")) {
 				console.log("Configuration file " + fileName + " does not have a valid structure");
-			process.exit(1);
-		}
+				process.exit(1);
+			}
 			conf.export = conf.export.concat(thisConf.export);
 			console.log("Loaded configuration file " + fileName);
 		}
@@ -158,6 +159,7 @@ function connectNewInstance() {
 
 function startExport() {
 	metaData = {};
+	customObjectsExported = {};
 
 	console.log("\n***** Packaging " + currentExport._name + " *****");
 
@@ -216,7 +218,8 @@ function exportDashboard() {
 			//Get indicator types from indicators
 			promises = [
 				indicatorTypes(), 
-				legendSets()
+				legendSets(),
+				customObjects()
 			];
 			Q.all(promises).then(function (results) {
 				console.log("✔ Downloaded metadata successfully");
@@ -366,7 +369,8 @@ function exportAggregate() {
 			promises = [
 				indicatorTypes(), 
 				legendSets(), 
-				predictors()
+				predictors(),
+				customObjects()
 			];
 			Q.all(promises).then(function (results) {
 				
@@ -514,7 +518,8 @@ function exportTracker() {
 			promises = [
 				indicatorTypes(), 
 				legendSets(), 
-				predictors()
+				predictors(),
+				customObjects()
 			];
 			Q.all(promises).then(function (results) {
 				
@@ -633,6 +638,9 @@ function object(type, ids) {
 //Generic "object by ID" function that saves metadata
 function saveObject(type, ids) {
 	var deferred = Q.defer();
+
+	//Add any customObjects ids for this type, if any
+	ids = ids.concat(customObjectIds(type));
 	
 	object(type, ids).then(function(result) {
 		addToMetdata(type, result[type]);
@@ -779,6 +787,7 @@ function categoryOptionGroupSetStructure() {
 	}
 
 	var promises = [];
+	ids = ids.concat(customObjectIds("categoryOptionGroupSets"));
 	promises.push(object("categoryOptionGroupSets", ids));
 	promises.push(d2.get("/api/categoryOptionGroups.json?fields=:owner&filter=groupSets.id:in:[" + 
 		ids.join(",") + "]&paging=false"));
@@ -803,9 +812,14 @@ function validationRules() {
 	var deferred = Q.defer();
 
 	var promises = [], ids = currentExport.validationRuleGroupIds;
+	ids = ids.concat(customObjectIds("validationRuleGroups"));
 	promises.push(object("validationRuleGroups", ids));
 	promises.push(d2.get("/api/validationRules.json?fields=:owner&filter=validationRuleGroups.id:in:[" + 
 		ids.join(",") + "]&paging=false"));
+	
+	var validationRuleIds = customObjectIds("validationRules");
+	if (validationRuleIds.length > 0) promises.push(object("validationRules", validationRuleIds));
+	
 	Q.all(promises).then(function (results) {
 		
 		for (var result of results) {
@@ -831,12 +845,18 @@ function predictors() {
 		dataElementIds.push(metaData["dataElements"][i].id);
 	}
 
-	d2.get("/api/predictors.json?fields=:owner&paging=false&filter=output.id:in:[" 
-			+ dataElementIds.join(",") + "]").then(function(result) {
-		addToMetdata("predictors", result["predictors"]);
-		deferred.resolve(true);			
-	});
+	//All predictors that target a data element in the export
+	var promises = [];
+	promises.push(d2.get("/api/predictors.json?fields=:owner&paging=false&filter=output.id:in:[" 
+			+ dataElementIds.join(",") + "]"));
 
+	//All predictors in the customObjects export
+	promises.push(saveObject("predictors", []));
+
+	Q.all(promises).then(function(results) {
+		addToMetdata("predictors", results[0]["predictors"]);
+		deferred.resolve(true);		
+	});	
 	return deferred.promise;
 }
 
@@ -860,6 +880,26 @@ function legendSets() {
 	}
 	
 	return saveObject("legendSets", ids);
+}
+
+
+function customObjects() {
+	var deferred = Q.defer();
+	
+	var promises = [];
+	if (currentExport.hasOwnProperty("customObjects")) {
+		for (var obj of currentExport.customObjects) {
+			if (!customObjectsExported[obj.objectType]) {
+				promises.push(saveObject(obj.objectType, obj.objectIds));
+			}
+		}
+	}
+
+	Q.all(promises).then(function(results) {
+		deferred.resolve(true);
+	});
+
+	return deferred.promise;
 }
 
 
@@ -1456,6 +1496,20 @@ function mapFromMapView(mapViewId) {
 		}
 	}
 	return null;
+}
+
+
+//Get Ids for a given object type, is specified in customObjects
+function customObjectIds(objType) {
+	customObjectsExported[objType] = true;
+	if (!currentExport.hasOwnProperty("customObjects")) return [];
+	
+	for (var obj of currentExport.customObjects) {
+		if (obj.objectType == objType) {
+			return obj.objectIds;
+		}
+	}
+	return [];
 }
 
 
