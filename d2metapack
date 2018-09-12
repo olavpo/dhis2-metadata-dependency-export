@@ -8,5 +8,4 @@
 NODE_PATH=/usr/local/bin/node
 EXPORT_FILE=/Users/Olav/Kode/DHIS/metadataDependencyExport/export.js
 
-CONFIG=$1
-$NODE_PATH $EXPORT_FILE $CONFIG
+$NODE_PATH $EXPORT_FILE $@

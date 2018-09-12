@@ -63,15 +63,17 @@ function run() {
  */
 function readConfig() {
 	if (process.argv.length <= 2) {
-		console.log("Specify path to configuration file, for example:");
+		console.log("Specify path to configuration file(s), for example:");
 		console.log("> node export.js hivConfig.json");
 		process.exit(1);
 	}
 	else {
-		var fileName = process.argv[2];
-		console.log(fileName);
+		var thisConf;
+		conf = { "export": []};
+		for (var i = 2; i < process.argv.length; i++) {
+			var fileName = process.argv[i];
 		try {
-			conf = JSON.parse(fs.readFileSync(fileName, "utf8"));
+				thisConf = JSON.parse(fs.readFileSync(fileName, "utf8"));
 		}
 		catch (err) {
 			console.log("Problem reading configuration file: " + fileName);
@@ -80,11 +82,13 @@ function readConfig() {
 			process.exit(1);
 		}
 		
-		if (!conf.hasOwnProperty("export")) {
-			console.log("Configuration file does not have a valid structure");
+			if (!thisConf.hasOwnProperty("export")) {
+				console.log("Configuration file " + fileName + " does not have a valid structure");
 			process.exit(1);
 		}
-		console.log("Loaded configuration " + fileName);
+			conf.export = conf.export.concat(thisConf.export);
+			console.log("Loaded configuration file " + fileName);
+		}
 		
 	}
 	return true;
