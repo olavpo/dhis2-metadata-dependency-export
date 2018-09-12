@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
+    "json-format": "^1.0.1",
     "jsonfile": "^2.4.0",
     "prompt": "^1.0.0",
     "q": "^1.4.1",
-    "request": "^2.79.0"
+    "request": "^2.79.0",
+    "sort-json": "^2.0.0"
   }
 }

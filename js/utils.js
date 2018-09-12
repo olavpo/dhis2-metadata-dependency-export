@@ -2,6 +2,8 @@
 
 var fs = require("fs");
 var Q = require("q");
+var jsonFormat = require("json-format");
+var jsonSort = require("sort-json");
 
 module.exports.saveFileJson = saveFileJson;
 module.exports.sortMetaData = sortMetaData;
@@ -21,8 +23,12 @@ module.exports.arrayFromKeys = arrayFromKeys;
 function saveFileJson(fileName, jsonContent) {
 	var deferred = Q.defer();
 
+	//first, sort the top-level json properties
+	jsonContent = jsonSort(jsonContent, {"ignoreCase": true, "reverse": false, "depth": 10});
+
+
 	//Save file
-	var data = JSON.stringify(jsonContent);
+	var data = jsonFormat(jsonContent);
 	fs.writeFile(fileName + ".json", data, function(err) {
 		if(err) {
 			return console.log(err);
