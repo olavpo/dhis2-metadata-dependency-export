@@ -3,6 +3,7 @@
 var fs = require("fs");
 var Q = require("q");
 var utils = require("./utils.js");
+var pretty = require("pretty");
 
 module.exports.makeReferenceList = makeReferenceList;
 module.exports.makeConfigurationChecklist = makeConfigurationChecklist;
@@ -20,51 +21,59 @@ function makeReferenceList(basePath, metaData) {
 		referenced[object] = false;
 	}
 
-	var content = "# Metadata reference\n";
+	var toc = [];
 
-	content += metaData.package;
+	var content = utils.htmlHead("Metadata reference");
+	content += "TOCPLACEHOLDER";
+	content += utils.htmlHeader("Metadata reference", 1);
+
+	content += "<span id=\"package\">" + metaData.package + "</span>";
 	referenced["package"] = true;
+	toc.push({"id": "package", "name": "Package ID"});
 
+
+	var tab;
 
 	//tracked entity types
 	if (metaData.trackedEntityTypes && metaData.trackedEntityTypes.length > 0) {
 		referenced["trackedEntityTypes"] = true;
-		
-		content += "\n## Tracked entity types\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
+		toc.push({"id": "trackedEntityTypes", "name": "Tracked Entity Types"});
+		content += utils.htmlHeader("Tracked entity types", 2, "trackedEntityTypes");
+		tab = [["Name", "Last updated","UID"]];
 
 		var tet;
 		for (var i = 0; i < metaData.trackedEntityTypes.length; i++) {
 			tet = metaData.trackedEntityTypes[i];
-			content += tet.name + " | " + tet.lastUpdated.substr(0,10) + " | " + tet.id + "\n";
+			tab.push([tet.name, tet.lastUpdated.substr(0,10), tet.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
+
 
 		//tracked entity type attributes
-		content += "\n### Tracked Entity Type - Tracked Entity Type Attributes\n";
-		content += "Tracked Entity Type | Tracked Entity Type Attribute\n";
-		content += "--- | ---\n";
+		content += utils.htmlHeader("Tracked Entity Type - Tracked Entity Type Attributes", 3);
+		tab = [["Tracked Entity Type", "Tracked Entity Type Attribute"]];
 		for (var i = 0; i < metaData.trackedEntityTypes.length; i++) {
 			tet = metaData.trackedEntityTypes[i];
 			for (var tea of tet.trackedEntityTypeAttributes) {
-				content += tet.name + " | " + getName(tea.id, metaData) + "\n";
+				tab.push([tet.name, getName(tea.id, metaData)]);
 			}
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 
 	//tracked entity attributes
 	if (metaData.trackedEntityAttributes && metaData.trackedEntityAttributes.length > 0) {
 		referenced["trackedEntityAttributes"] = true;
-		
-		content += "\n## Tracked entity attributes\n";
-		content += "Name | Code | Description | Last updated | UID\n";
-		content += "--- | --- | --- | --- | --- \n";
+		toc.push({"id": "trackedEntityAttributes", "name": "Tracked Entity Attributes"});
+		content += utils.htmlHeader("Tracked entity attributes", 2, "trackedEntityAttributes");
+		tab = [["Name","Code","Description","Last updated","UID"]];
 
 		var tea;
 		for (var tea of metaData.trackedEntityAttributes) {
-			content += tea.name + " | " + (tea.code ? tea.code : "") + " | " + tea.description + " | " + tea.lastUpdated.substr(0,10) + " | " + tea.id + "\n";
+			tab.push([tea.name, (tea.code ? tea.code : ""), tea.description, tea.lastUpdated.substr(0,10), tea.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 
@@ -73,47 +82,52 @@ function makeReferenceList(basePath, metaData) {
 		referenced["dataSets"] = true;
 		referenced["sections"] = true;
 		referenced["dataEntryForms"] = true;
+		toc.push({"id": "dataSets", "name": "Data Sets"});
 		
 		var ds, sec, de;
-		content += "\n## Data sets\n";
+		content += utils.htmlHeader("Data sets", 2, "dataSets");
 		for (var i = 0; i < metaData.dataSets.length; i++) {
 			ds = metaData.dataSets[i];
 
 			var dsSec = sections(ds, metaData);
 
-			content += "\n### " + ds.name + " \n";
-			content += "Property | Value \n --- | --- \n";
-			content += "Name: | " + ds.name + "\n";
-			content += "Custom form: | " + (ds.dataEntryForm ? ds.dataEntryForm.id : "No") + "\n";
-			content += "Sections: | " + (dsSec.length > 0 ? "Yes" : "No") + "\n";
-			content += "Last updated: | " + ds.lastUpdated.substr(0,10) + "\n";
-			content += "UID: | " + ds.id+ "\n";
+			content += utils.htmlHeader(ds.name, 3);
+			tab = [["Property", "Value"]];
+			tab.push(["Name:", "" + ds.name]);
+			tab.push(["Custom form:", ds.dataEntryForm ? ds.dataEntryForm.id : "No"]);
+			tab.push(["Sections:", (dsSec.length > 0 ? "Yes" : "No")]);
+			tab.push(["Last updated", ds.lastUpdated.substr(0,10)]);
+			tab.push(["UID:", ds.id]);
+			content += utils.htmlTableFromArrayVertical(tab);
 
 			if (dsSec.length > 0) {
-				content += "\n#### Sections\n";
-				content += "Section | Last updated | UID\n";
-				content += "--- | --- | ---\n";
+				content += utils.htmlHeader("Sections", 4);
+				tab = [["Section", "Last updated", "UID"]];
 					
 				for (var sec of sections(ds, metaData)) {
-					content += sec.name + " | " + sec.lastUpdated.substr(0,10) + " | " + sec.id + "\n";
+					tab.push([sec.name, sec.lastUpdated.substr(0,10), sec.id]);
 				}
+				content += utils.htmlTableFromArray(tab, true);
 				
-				content += "\n#### Data Set Section - Data Element\n";
-				content += "Data Set Section | Data Element\n";
-				content += "--- | ---\n";
+				
+				content += utils.htmlHeader("Data Set Section - Data Element", 4);
+				tab = [["Data Set Section", "Data Element"]];
+				
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
-					content+= row.section + " | " + row.dataElement + "\n";
+					tab.push([row.section, row.dataElement]);
 				}
+				content += utils.htmlTableFromArray(tab, true);
 			}
 			else {
-				content += "\n#### Data Elements\n";
-				content += "| Data Element |\n";
-				content += "| --- |\n";
+				content += utils.htmlHeader("Data Elements", 4);
+				tab = [["Data Elements"]];
+				
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
-					content+= "| " + row.dataElement + " |\n";
+					tab.push([row.dataelement]);
 				}
+				content += utils.htmlTableFromArray(tab, true);
 			}
 		}
 	}
@@ -129,79 +143,85 @@ function makeReferenceList(basePath, metaData) {
 		referenced["programRuleActions"] = true;
 		referenced["programRuleVariables"] = true;
 		referenced["programTrackedEntityAttributes"] = true;
+		toc.push({"id": "programs", "name": "Programs"});
+		toc.push({"id": "programRules", "name": "Program Rules"});
 		
-		content += "\n## Programs\n";
+		content += utils.htmlHeader("Programs", 2, "programs");
 		for (var h = 0; h < metaData.programs.length; h++) {
 			var prog = metaData.programs[h];
-			content += "\n### " + prog.name + "\n";
-			content += "Property | Value \n --- | --- \n";
-			content += "Name: | " + prog.name + "\n";
-			if (prog.programType != "WITHOUT_REGISTRATION") content += "Tracked Entity Type: | " + getName(prog.trackedEntityType.id, metaData) + "\n";
-			content += "Last updated: | " + prog.lastUpdated.substr(0,10) + "\n";
-			content += "UID: | " + prog.id+ "\n";
+			content += utils.htmlHeader(prog.name, 3);
+			tab = [["Property", "Value"]];
+
+			tab.push(["Name", prog.name]);
+			if (prog.programType != "WITHOUT_REGISTRATION") tab.push(["Tracked Entity Type:", getName(prog.trackedEntityType.id, metaData)]);
+			tab.push(["Last updated:", prog.lastUpdated.substr(0,10)]);
+			tab.push(["UID:", prog.id]);
+			content += utils.htmlTableFromArrayVertical(tab);
 
 
 
 			var ps, sec;
-			content += "\n#### Program Stages\n";
-			content += "Program Stage | Last updated | UID\n";
-			content += "--- | --- | ---\n";
+			content += utils.htmlHeader("Program Stages", 4);
+			tab = [["Program Stage", "Last updated", "UID"]];
+		
 			for (var i = 0; i < prog.programStages.length; i++) {
 				ps = metaData.programStages[i];
 				for (var j = 0; j < metaData.programStages.length && !ps; j++) {
 					if (prog.programStages[i].id == metaData.programStages[j].id) ps = metaData.programStages[j];
 				}
-				content+= ps.name + " | " + ps.lastUpdated.substr(0,10) + " | " + ps.id + "\n";
+				tab.push([ps.name, ps.lastUpdated.substr(0,10), ps.id]);
 			}
+			content += utils.htmlTableFromArray(tab, true);
 
-			content += "\n#### Program Stage - Program Stage Section - Data Element\n";
-			content += "Program Stage | Program Stage Section | Data Element\n";
-			content += "--- | --- | ---\n";
-	
+			content += utils.htmlHeader("Program Stage - Program Stage Section - Data Element", 4);
+			tab = [["Program Stage", "Program Stage Section", "Data Element"]];
+				
 			for (var ps of prog.programStages) {
 				ps = getObject(ps.id, metaData);
 				for (var psde of ps.programStageDataElements) {
-					content += ps.name + " | " + programSectionFromStageAndElement(ps.id, psde.dataElement.id, metaData) + " | " + getName(psde.dataElement.id, metaData) + "\n";
+					tab.push([ps.name, programSectionFromStageAndElement(ps.id, psde.dataElement.id, metaData), getName(psde.dataElement.id, metaData)]);
 				}
 			}
+			content += utils.htmlTableFromArray(tab, true);
 
 			//Program indicators
-	
 			if (metaData.programIndicators && metaData.programIndicators.length > 0) {
 				referenced["programIndicators"] = true;
+				toc.push({"id": "programIndicators", "name": "Program Indicators"});
 				
-				content += "\n## Program Indicators\n";
-				content += "Name | Shortname | Code | Description | Analytics Type | Last updated | UID \n";
-				content += "--- | --- | --- | --- | --- | --- | --- \n";
-
+				content += utils.htmlHeader("Program Indicators", 2, "programIndicators");
+				tab = [["Name", "Shortname", "Code", "Description", "Analytics Type", "Last updated", "UID"]];
+				
 				var ind, type;
 				for (var i = 0; i < metaData.programIndicators.length; i++) {
 					ind = metaData.programIndicators[i];
 
-					content += ind.name + " | " + ind.shortName + " | " + (ind.code ? ind.code : "") + " | " + (ind.description ? ind.description : " ") + " | " +
-					ind.analyticsType + " | " + (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : "") + " | " + ind.id + "\n";
+					tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : " "), 
+						ind.analyticsType, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
 				}
+				content += utils.htmlTableFromArray(tab, true);
 			}
 
 
 			//Program rules
 			var programRules = programProgramRules(prog.id, metaData);
-			content += "\n#### Program Rules\n";
-			content += "Program rule | Description | Last updated | UID\n";
-			content += "--- | --- | --- | ---\n";
+			content += utils.htmlHeader("Program Rules", 4, "programRules");
+			tab = [["Program rule", "Description", "Last updated", "UID"]];
+
 			for (var pr of programRules) {
-				content += pr.name + " | " + pr.description + " | " + pr.lastUpdated.substr(0,10) + " | " + pr.id + "\n"; 
+				tab.push([pr.name, pr.description, pr.lastUpdated.substr(0,10), pr.id]);
 			}
+			content += utils.htmlTableFromArray(tab, true);
 
 
 			//Program tracked entity attributes
-			content += "\n#### Program Tracked Entity Attributes\n";
-			content += "Tracked Entity Attribute Name | Last updated | Program Tracked Entity Attribute UID | Tracked Entity Attribute UID\n";
-			content += "--- | --- | ---\n";
+			content += utils.htmlHeader("Program Tracked Entity Attributes", 4);
+			tab = [["Tracked Entity Attribute Name", "Last updated", "Program Tracked Entity Attribute UID", "Tracked Entity Attribute UID"]];
 			for (var ptea of prog.programTrackedEntityAttributes) {
 				ptea = getObject(ptea.id, metaData);
-				content += getName(ptea.trackedEntityAttribute.id, metaData) + ' | ' + ptea.lastUpdated.substr(0,10) + ' | ' + ptea.id  + ' | ' + ptea.trackedEntityAttribute.id + "\n";
+				tab.push([getName(ptea.trackedEntityAttribute.id, metaData), ptea.lastUpdated.substr(0,10), ptea.id, ptea.trackedEntityAttribute.id]);
 			}
+			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
 
@@ -210,50 +230,52 @@ function makeReferenceList(basePath, metaData) {
 	//data elements: name, shortname, description, categorycombo, uid
 	if (metaData.dataElements && metaData.dataElements.length > 0) {
 		referenced["dataElements"] = true;
+		toc.push({"id": "dataElements", "name": "Data Elements"});
 		
-		content += "\n## Data Elements\n";
-		content += "Name | Shortname | Code | Description | Categorycombo | Last updated | UID\n";
-		content += "--- | --- | --- | --- |  --- | --- | --- \n";
+		content += utils.htmlHeader("Data Elements", 2);
+		tab = [["Name", "Shortname", "Code", "Description", "Categorycombo", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.dataElements.length; i++) {
 			de = metaData.dataElements[i];
-
 			var comboName = getName(de.categoryCombo.id, metaData);
-			content += de.name + " | " + de.shortName + " | " + (de.code ? de.code : "") + " | " + (de.description ? de.description : "") + " | " + comboName + " | " + de.lastUpdated.substr(0,10) + " | " + de.id + "\n";
+			tab.push([de.name, de.shortName, (de.code ? de.code : ""), (de.description ? de.description : ""), comboName, de.lastUpdated.substr(0,10), de.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
+
 	}
 
 	//data element groups
 	if (metaData.dataElementGroups && metaData.dataElementGroups.length > 0) {
-		referenced["dataElementGroups"] = true;				
+		referenced["dataElementGroups"] = true;	
+		toc.push({"id": "dataElementGroups", "name": "Data Element Groups"});			
 				
-		content += "\n## Data Element Groups\n";
-		content += "Name | Shortname | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Data Element Groups", 2);
+		tab = [["Name", "Shortname", "Last updated", "UID"]];
 
 		for (var item of metaData.dataElementGroups) {
-			content += item.name + " | " + (item.shortName ? item.shortName : "") + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
-
+			tab.push([item.name, (item.shortName ? item.shortName : ""), item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 
-		content += "\n### Data Element Groups - Data Elements\n";
-		content += "Data Element Group | Data Element\n";
-		content += "--- | --- \n";
+		content += utils.htmlHeader("Data Element Groups - Data Elements", 3);
+		tab = [["Data Element Group", "Data Element"]];
+
 		var item, elements;
 		for (var item of metaData.dataElementGroups) {
 			for (var de of item.dataElements) {
-				content += item.name + " | " + getName(de.id, metaData) + "\n";
+				tab.push([item.name, getName(de.id, metaData)]);
 			}
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//categorycombos
 	if (metaData.categoryCombos && metaData.categoryCombos.length > 0) {
 		referenced["categoryCombos"] = true;
+		toc.push({"id": "categoryCombos", "name": "Category Combos"});
 		
-		content += "\n## Category Combinations\n";
-		content += "Name | Last updated | UID | Categories\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Category Combinations", 2, "categoryCombos");
+		tab = [["Name", "Last updated", "UID", "Categories"]];
 
 		var cc, dec, elements;
 		for (var i = 0; i < metaData.categoryCombos.length; i++) {
@@ -266,17 +288,18 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 
-			content += cc.name + " | " + cc.lastUpdated.substr(0,10) + " | " + cc.id + " | " + (elements.length > 0 ? elements.join("; ") : " ") + "\n";
+			tab.push([cc.name, cc.lastUpdated.substr(0,10), cc.id, (elements.length > 0 ? elements.join("; ") : " ")]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//categories
 	if (metaData.categories && metaData.categories.length > 0) {
 		referenced["categories"] = true;
+		toc.push({"id": "categories", "name": "Categories"});
 		
-		content += "\n## Data Element Categories\n";
-		content += "Name | Last updated | UID | Category options\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Data Element Categories", 2, "categories");
+		tab = [["Name", "Last updated", "UID", "Category options"]];
 
 		var dec, co, elements;
 		for (var i = 0; i < metaData.categories.length; i++) {
@@ -289,72 +312,76 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 
-			content += dec.name + " | " + dec.lastUpdated.substr(0,10) + " | " + dec.id + " | " + (elements.length > 0 ? elements.join("; ") : " ") + "\n";
+			tab.push([dec.name, dec.lastUpdated.substr(0,10), dec.id, (elements.length > 0 ? elements.join("; ") : " ")]); 
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//category options
 	if (metaData.categoryOptions && metaData.categoryOptions.length > 0) {
 		referenced["categoryOptions"] = true;
+		toc.push({"id": "categoryOptions", "name": "Category Options"});
 		
-		content += "\n## Data Element Category Options\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
+		content += utils.htmlHeader("Data Element Category Options", 2, "categoryOptions");
+		tab = [["Name", "Last updated", "UID"]];
 
 		var co;
 		for (var i = 0; i < metaData.categoryOptions.length; i++) {
 			co = metaData.categoryOptions[i];
-			content += co.name + " | " + co.lastUpdated.substr(0,10) + " | " + co.id + "\n";
+			tab.push([co.name, co.lastUpdated.substr(0,10), co.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//categoryOptionCombos
 	if (metaData.categoryOptionCombos && metaData.categoryOptionCombos.length > 0) {
 		referenced["categoryOptionCombos"] = true;
+		toc.push({"id": "categoryOptionCombos", "name": "Category Option Combos"});
 		
-		content += "\n## Category Option Combination\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
+		content += utils.htmlHeader("Category Option Combination", 2, "categoryOptionCombos");
+		tab = [["Name", "Last updated", "UID"]];
 
 		var coc;
 		for (var i = 0; i < metaData.categoryOptionCombos.length; i++) {
 			coc = metaData.categoryOptionCombos[i];
-			content += coc.name + " | " + coc.lastUpdated.substr(0,10) + " | " + coc.id + "\n";
+			tab.push([coc.name, coc.lastUpdated.substr(0,10), coc.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//categoryOptionGroupSets
 	if (metaData.categoryOptionGroupSets && metaData.categoryOptionGroupSets.length > 0) {
 		referenced["categoryOptionGroupSets"] = true;
+		toc.push({"id": "categoryOptionGroupSets", "name": "Category Option Group Sets"});
 		
-		content += "\n## Category Option Group Sets\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
+		content += utils.htmlHeader("Category Option Group Sets", 2, "categoryOptionGroupSets");
+		tab = [["Name", "Last updated", "UID"]];
 
 		var cogs;
 		for (var i = 0; i < metaData.categoryOptionGroupSets.length; i++) {
 			cogs = metaData.categoryOptionGroupSets[i];
-			content += cogs.name + " | " + cogs.lastUpdated.substr(0,10) + " | " + cogs.id + "\n";
+			tab.push([cogs.name, cogs.lastUpdated.substr(0,10), cogs.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//categoryOptionGroups
 	if (metaData.categoryOptionGroups && metaData.categoryOptionGroups.length > 0) {
 		referenced["categoryOptionGroups"] = true;
+		toc.push({"id": "categoryOptionGroups", "name": "Category Option Groups"});
 		
-		content += "\n## Category Option Groups\n";
-		content += "Name | Shortname | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Category Option Groups", 2, "categoryOptionGroups");
+		tab = [["Name", "Shortname", "Last updated", "UID"]];
 
 		for (var j = 0; metaData.categoryOptionGroups && j < metaData.categoryOptionGroups.length; j++) {
 			item = metaData.categoryOptionGroups[j];
-			content += item.name + " | " + item.shortName + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
-
+			tab.push([item.name, item.shortName, item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 
-		content += "### Category Option Group Sets - Category Option Groups\n";
-		content += "Category Option Group Sets | Category Option Groups\n";
-		content += "--- | --- \n";
+		content += utils.htmlHeader("Category Option Group Sets - Category Option Groups", 3);
+		tab = [["Category Option Group Sets", "Category Option Groups"]];
+
 		var item, cog;
 		for (var j = 0; metaData.categoryOptionGroupSets && j < metaData.categoryOptionGroupSets.length; j++) {
 			item = metaData.categoryOptionGroupSets[j];
@@ -362,20 +389,21 @@ function makeReferenceList(basePath, metaData) {
 				cog = item.categoryOptionGroups[k];
 				for (var l = 0; l < metaData.categoryOptionGroups.length; l++) {
 					if (cog.id === metaData.categoryOptionGroups[l].id) {
-						content += item.name + " | " + metaData.categoryOptionGroups[l].name + "\n";
+						tab.push([item.name, metaData.categoryOptionGroups[l].name]);
 					}
 				}
 			}
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//optionSets
 	if (metaData.optionSets && metaData.optionSets.length > 0) {
 		referenced["optionSets"] = true;
+		toc.push({"id": "optionSets", "name": "Option Sets"});
 		
-		content += "\n## Option Sets\n";
-		content += "Name | Last updated | UID | Options\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Option Sets", 2, "optionSets");
+		tab = [["Name", "Last updated", "UID", "Options"]];
 
 		var os, co, elements;
 		for (var i = 0; i < metaData.optionSets.length; i++) {
@@ -391,51 +419,86 @@ function makeReferenceList(basePath, metaData) {
 			var elementText;
 			if (elements.length > 20) {
 				var notShown = elements.length - 20;
-				elements.splice(20)
+				elements.splice(20);
 				elements.push("another " + notShown + " options not shown.");
 			}
 		
 			elementText = elements.join("; ");
-			content += os.name + " | " + os.lastUpdated.substr(0,10) + " | " + os.id + " | " + elementText + "\n";
+			tab.push([os.name, os.lastUpdated.substr(0,10), os.id, elementText]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//options
 	if (metaData.options && metaData.options.length > 0) {
 		referenced["options"] = true;
+		toc.push({"id": "options", "name": "Options"});
 		
-		content += "\n## Options\n";
-		content += "<table><tr><th>Name</th><th>Code</th><th>Last updated</th><th>UID</th></tr>"
+		content += utils.htmlHeader("Options", 2, "options");
+		content += "<table><tr><th>Name</th><th>Code</th><th>Last updated</th><th>UID</th></tr>";
 		var opt;
 		for (var i = 0; i < metaData.options.length; i++) {
 			opt = metaData.options[i];
-			content += "<tr><td>" + getName(opt.optionSet.id, metaData) + "</td><td>" + opt.name + "</td><td>" + opt.code + "</td><td>" + opt.lastUpdated.substr(0,10) + "</td><td>" + opt.id + "</td></tr>"
+			content += "<tr><td>" + getName(opt.optionSet.id, metaData) + "</td><td>" + opt.name + "</td><td>" + opt.code + "</td><td>" + opt.lastUpdated.substr(0,10) + "</td><td>" + opt.id + "</td></tr>";
 		}
-		content += "</table>"
+		content += "</table>";
 	}
 
 	//validation rules
 	if (metaData.validationRules && metaData.validationRules.length > 0) {
 		referenced["validationRules"] = true;
+		toc.push({"id": "validationRules", "name": "Validation Rules"});
 		
-		content += "\n## Validation Rules\n";
-		content += "Name | Instruction | Left side | Operator | Right side | Last updated | UID\n";
-		content += "--- | --- | --- | --- | --- | --- | --- \n";
+		content += utils.htmlHeader("Validation Rules", 2, "validationRules");
+		tab = [["Name", "Instruction", "Left side", "Operator", "Right side", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.validationRules.length; i++) {
 			var vr = metaData.validationRules[i];
 
-			content += vr.name + " | " + vr.instruction + " | " + vr.leftSide.description + " | " + vr.operator + " | " + vr.rightSide.description + " | " + vr.lastUpdated.substr(0,10) + " | " + vr.id + "\n";
+			tab.push([vr.name, vr.instruction, vr.leftSide.description, vr.operator, vr.rightSide.description, vr.lastUpdated.substr(0,10), vr.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
+	//validation rule groups
+	if (metaData.validationRuleGroups && metaData.validationRuleGroups.length > 0) {
+		referenced["validationRuleGroups"] = true;
+		toc.push({"id": "validationRuleGroups", "name": "Validation Rule Groups"});
+		
+		content += utils.htmlHeader("Validation Rule Groups", 2, "validationRuleGroups");
+		tab = [["Name", "Last updated", "UID"]];
+
+		for (var j = 0; metaData.validationRuleGroups && j < metaData.validationRuleGroups.length; j++) {
+			item = metaData.validationRuleGroups[j];
+			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
+		}
+		content += utils.htmlTableFromArray(tab, true);
+
+		content += utils.htmlHeader("Validation Rule Groups - Validation Rules", 3);
+		tab = [["Validation Rule Group", "Validation Rule"]];
+
+		var item, elements;
+		for (var j = 0; metaData.validationRuleGroups && j < metaData.validationRuleGroups.length; j++) {
+			item = metaData.validationRuleGroups[j];
+			for (var k = 0; k < item.validationRules.length; k++) {
+				de = item.validationRules[k];
+				for (var l = 0; l < metaData.validationRules.length; l++) {
+					if (de.id === metaData.validationRules[l].id) {
+						tab.push([item.name, metaData.validationRules[l].name]);
+					}
+				}
+			}
+		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 	
 	//predictors
 	if (metaData.predictors && metaData.predictors.length > 0) {
 		referenced["predictors"] = true;
+		toc.push({"id": "predictors", "name": "Predictors"});
 		
-		content += "\n## Predictors\n";
-		content += "Name | Generator | Sequential samples | Annual samples | Target data element | Last updated | UID\n";
-		content += "--- | --- | --- | --- | --- | --- | --- \n";
+		content += utils.htmlHeader("Predictors", 2, "predictors");
+		tab = [["Name", "Generator", "Sequential samples", "Annual samples", "Target data element", "Last updated", "UID"]];
 
 		var pred;
 		for (var i = 0; i < metaData.predictors.length; i++) {
@@ -445,53 +508,21 @@ function makeReferenceList(basePath, metaData) {
 			for (var j = 0; metaData.dataElements && j < metaData.dataElements.length; j++) {
 				if (metaData.dataElements[j].id === pred.output.id) targetName = metaData.dataElements[j].name;
 			}
-			content += pred.name + " | ";
-			content += pred.generator.description + " | ";
-			content += pred.sequentialSampleCount + " | ";
-			content += pred.annualSampleCount + " | ";
-			content += targetName + " | ";
-			content += pred.lastUpdated.substr(0,10) + " | " + pred.id + "\n";
+			tab.push([pred.name, pred.generator.description, pred.sequentialSampleCount, pred.annualSampleCount, targetName, 
+				pred.lastUpdated.substr(0,10), pred.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
-	//validation rule groups
-	if (metaData.validationRuleGroups && metaData.validationRuleGroups.length > 0) {
-		referenced["validationRuleGroups"] = true;
-		
-		content += "\n## Validation Rule Groups\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
-
-		for (var j = 0; metaData.validationRuleGroups && j < metaData.validationRuleGroups.length; j++) {
-			item = metaData.validationRuleGroups[j];
-			content += item.name + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
-
-		}
-
-		content += "### Validation Rule Groups - Validation Rules\n";
-		content += "Validation Rule Group | Validation Rule\n";
-		content += "--- | --- \n";
-		var item, elements;
-		for (var j = 0; metaData.validationRuleGroups && j < metaData.validationRuleGroups.length; j++) {
-			item = metaData.validationRuleGroups[j];
-			for (var k = 0; k < item.validationRules.length; k++) {
-				de = item.validationRules[k];
-				for (var l = 0; l < metaData.validationRules.length; l++) {
-					if (de.id === metaData.validationRules[l].id) {
-						content += item.name + " | " + metaData.validationRules[l].name + "\n";
-					}
-				}
-			}
-		}
-	}
+	
 	
 	//indicators: name, shortname, description, numeratorDescription, denominatorDescription, type, uid
 	if (metaData.indicators && metaData.indicators.length > 0) {
 		referenced["indicators"] = true;
+		toc.push({"id": "indicators", "name": "Indicators"});
 		
-		content += "\n## Indicators\n";
-		content += "Name | Shortname | Code | Description | Numerator | Denominator | Type | Last updated | UID \n";
-		content += "--- | --- | --- | --- | --- | --- | --- | --- | --- \n";
+		content += utils.htmlHeader("Indicators", 2, "indicators");
+		tab = [["Name", "Shortname", "Code", "Description", "Numerator", "Denominator", "Type", "Last updated", "UID "]];
 
 		var ind, type;
 		for (var i = 0; i < metaData.indicators.length; i++) {
@@ -504,28 +535,30 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 
-			content += ind.name + " | " + ind.shortName + " | " + (ind.code ? ind.code : "") + " | " + (ind.description ? ind.description : "") + " | " +
-				ind.numeratorDescription + " | " + ind.denominatorDescription + " | " + type + " | " + (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : "") + " | " + ind.id + "\n";
+			tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""), 
+				ind.numeratorDescription, ind.denominatorDescription, type, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//indicator groups
 	if (metaData.indicatorGroups && metaData.indicatorGroups.length > 0) {
 		referenced["indicatorGroups"] = true;
+		toc.push({"id": "indicatorGroups", "name": "Indicator Groups"});
 		
-		content += "\n## Indicator Groups\n";
-		content += "Name | Shortname | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Indicator Groups", 2, "indicatorGroups");
+		tab = [["Name", "Shortname", "Last updated", "UID"]];
 
 		for (var j = 0; metaData.indicatorGroups && j < metaData.indicatorGroups.length; j++) {
 			item = metaData.indicatorGroups[j];
-			content += item.name + " | " + (item.shortName ? item.shortName : "") + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
-
+			tab.push([item.name, (item.shortName ? item.shortName : ""), item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 
-		content += "### Indicator Groups - Indicators\n";
-		content += "Indicator Group | Indicator\n";
-		content += "--- | --- \n";
+
+		content += utils.htmlHeader("Indicator Groups - Indicators", 3);
+		tab = [["Indicator Group", "Indicator"]];
+
 		var item, elements;
 		for (var j = 0; metaData.indicatorGroups && j < metaData.indicatorGroups.length; j++) {
 			item = metaData.indicatorGroups[j];
@@ -533,52 +566,52 @@ function makeReferenceList(basePath, metaData) {
 				de = item.indicators[k];
 				for (var l = 0; l < metaData.indicators.length; l++) {
 					if (de.id === metaData.indicators[l].id) {
-						content += item.name + " | " + metaData.indicators[l].name + "\n";
+						tab.push([item.name, metaData.indicators[l].name]);
 					}
 				}
 			}
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//indicatorTypes
 	if (metaData.indicatorTypes && metaData.indicatorTypes.length > 0) {
 		referenced["indicatorTypes"] = true;
+		toc.push({"id": "indicatorTypes", "name": "Indicator Types"});
 		
-		content += "\n## Indicator types\n";
-		content += "Name | Factor | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Indicator types", 2, "indicatorTypes");
+		tab = [["Name", "Factor", "Last updated", "UID"]];
 
 		var it;
 		for (var i = 0; i < metaData.indicatorTypes.length; i++) {
 			it = metaData.indicatorTypes[i];
-			content += it.name + " | " + it.factor + " | " + (it.lastUpdated ? it.lastUpdated.substr(0,10) : "") + " | " + it.id + "\n";
+			tab.push([it.name, it.factor, (it.lastUpdated ? it.lastUpdated.substr(0,10) : ""), it.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//dashboards and dashboard items
 	if (metaData.dashboards && metaData.dashboards.length > 0) {
 		referenced["dashboards"] = true;
 		referenced["dashboardItems"] = true;
+		toc.push({"id": "dashboards", "name": "Dashboards"});
 	
 		var db, dbi;
-		content += "\n## Dashboards\n";
+		content += utils.htmlHeader("Dashboards", 2, "dashboards");
 		for (var i = 0; i < metaData.dashboards.length; i++) {
 			db = metaData.dashboards[i];
 
-			content += "### " + db.name + " \n";
-			content += "Property | Value \n --- | --- \n";
-			content += "Name: | " + db.name + "\n";
-			content += "Last updated: | " + db.lastUpdated.substr(0,10) + "\n";
-			content += "UID: | " + db.id+ "\n";
+			content += utils.htmlHeader(db.name, 3);
+			tab = [["Property", "Value"]];
+			tab.push(["Name:", db.name]);
+			tab.push(["Last updated:", db.lastUpdated.substr(0,10)]);
+			tab.push(["UID:", db.id]);
+			content += utils.htmlTableFromArrayVertical(tab);
 
 
-
-			content += "#### Dashboard items\n";
-			content += "Content/item type | Content name | Content UID | Last updated | Dashboard Item UID \n";
-			content += "--- | --- | --- | --- | ---\n";
-
-
-			
+			content += utils.htmlHeader("Dashboard items", 4);
+			tab = [["Content/item type", "Content name", "Content UID", "Last updated", "Dashboard Item UID"]];
+					
 			for (var j = 0; j < db.dashboardItems.length; j++) {
 
 				//versions >= 2.29
@@ -655,60 +688,61 @@ function makeReferenceList(basePath, metaData) {
 					name = " ";
 					id = " ";
 				}
-				content += type + " | " + name + " | " + id + " | " + dbi.lastUpdated.substr(0,10) + " | " + dbi.id + "\n";
+				tab.push([type, name, id, dbi.lastUpdated.substr(0,10), dbi.id]);
 			}
-
-			
+			content += utils.htmlTableFromArray(tab, true);	
 		}
 	}
 
 	//charts
 	if (metaData.charts && metaData.charts.length > 0) {
 		referenced["charts"] = true;
+		toc.push({"id": "charts", "name": "Charts"});
 		
-		content += "\n## Charts\n";
-		content += "Name | Description | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Charts", 2, "charts");
+		tab = [["Name", "Description", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.charts.length; i++) {
 			var item = metaData.charts[i];
-			content += item.name + " | " + (item.description ? item.description : " ") + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//pivottables
 	if (metaData.reportTables && metaData.reportTables.length > 0) {
 		referenced["reportTables"] = true;
+		toc.push({"id": "reportTables", "name": "Report Tables"});
 		
-		content += "\n## Report tables\n";
-		content += "Name | Description | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Report tables", 2, "reportTables");
+		tab = [["Name", "Description", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.reportTables.length; i++) {
 			var item = metaData.reportTables[i];
-			content += item.name + " | " + (item.description ? item.description : " ") + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//maps and map view
 	if (metaData.maps && metaData.maps.length > 0) {
 		referenced["maps"] = true;
 		referenced["mapViews"] = true;
+		toc.push({"id": "maps", "name": "Maps"});
 		
-		content += "\n## Maps\n";
-		content += "Name | Description | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Maps", 2, "maps");
+		tab = [["Name", "Description", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.maps.length; i++) {
 			var item = metaData.maps[i];
-			content += item.name + " | " + (item.description ? item.description : " ") + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 
 		//mapviews
 		if (metaData.mapViews && metaData.mapViews.length > 0) {
-			content += "### Map views\n";
-			content += "Parent map name | Parent map UID | Last updated | UID\n";
-			content += "--- | --- | --- | --- \n";
+			content += utils.htmlHeader("Map views", 3);
+			tab = [["Parent map name", "Parent map UID", "Last updated", "UID"]];
 
 			for (var k = 0; k < metaData.mapViews.length; k++) {
 				var mv = metaData.mapViews[k];
@@ -716,128 +750,134 @@ function makeReferenceList(basePath, metaData) {
 					var item = metaData.maps[i];
 					for (var j = 0; j < item.mapViews.length; j++) {
 						if (mv.id === item.mapViews[j].id) {
-							content += item.name + " | " + item.id + " | " + mv.lastUpdated.substr(0,10) + " | " + mv.id + "\n";
+							tab.push([item.name, item.id, mv.lastUpdated.substr(0,10), mv.id]);
 						}
 					}
 				}
 			}
+			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
 
 	//eventReports
 	if (metaData.eventReports && metaData.eventReports.length > 0) {
 		referenced["eventReports"] = true;
+		toc.push({"id": "eventReports", "name": "Event Reports"});
 		
-		content += "\n## Event reports\n";
-		content += "Name | Description | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Event reports", 2, "eventReports");
+		tab = [["Name", "Description", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.eventReports.length; i++) {
 			var item = metaData.eventReports[i];
-			content += item.name + " | " + (item.description ? item.description : " ") + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 
 	//eventCharts
 	if (metaData.eventCharts && metaData.eventCharts.length > 0) {
 		referenced["eventCharts"] = true;
+		toc.push({"id": "eventCharts", "name": "Event Charts"});
 		
-		content += "\n## Event charts\n";
-		content += "Name | Description | Last updated | UID\n";
-		content += "--- | --- | --- | --- \n";
+		content += utils.htmlHeader("Event charts", 2, "eventCharts");
+		tab = [["Name", "Description", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.eventCharts.length; i++) {
 			var item = metaData.eventCharts[i];
-			content += item.name + " | " + (item.description ? item.description : " ") + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 
 	//reports
 	if (metaData.reports && metaData.reports.length > 0) {
 		referenced["reports"] = true;
+		toc.push({"id": "reports", "name": "Standard Reports"});
 		
-		content += "\n## Standard reports\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
+		content += utils.htmlHeader("Standard reports", 2, "reports");
+		tab = [["Name", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.reports.length; i++) {
 			var item = metaData.reports[i];
-			content += item.name + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//resources
 	if (metaData.documents && metaData.documents.length > 0) {
 		referenced["documents"] = true;
+		toc.push({"id": "documents", "name": "Resources"});
 		
-		content += "\n## Resources\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
+		content += utils.htmlHeader("Resources", 2, "resources");
+		tab = [["Name", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.documents.length; i++) {
 			var item = metaData.documents[i];
-			content += item.name + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//legend sets and legends
 	if (metaData.legendSets && metaData.legendSets.length > 0) {
 		referenced["legendSets"] = true;
+		toc.push({"id": "legendSets", "name": "Legend Sets"});
 		
-		content += "\n## Legend Sets\n";
+		content += utils.htmlHeader("Legend Sets", 2, "legendSets");
 
 		var legendSet;
 		for (var i = 0; i < metaData.legendSets.length; i++) {
 			legendSet = metaData.legendSets[i];
 
-			content += "\n\n### " + legendSet.name + " \n";
-			content += "Property | Value \n --- | --- \n";
-			content += "Name: | " + legendSet.name + "\n";
-			content += "Last updated: | " + legendSet.lastUpdated.substr(0,10) + "\n";
-			content += "UID: | " + legendSet.id+ "\n";
+			content += utils.htmlHeader(legendSet.name, 3);
+			tab = [["Property", "Value"]];
 
+			tab.push(["Name:", legendSet.name]);
+			tab.push(["Last updated:", legendSet.lastUpdated.substr(0,10)]);
+			tab.push(["UID", legendSet.id]);
+			content += utils.htmlTableFromArrayVertical(tab);
 
-			content += "\n#### Legends\n";
-			content += "Name | Start | End | Last updated | UID \n";
-			content += "--- | --- | --- | --- | ---\n";
-
+			content += utils.htmlHeader("Legends", 4);
+			tab = [["Name", "Start", "End", "Last updated", "UID "]];
 
 			for (var j = 0; j < legendSet.legends.length; j++) {
 				var item = legendSet.legends[j];
-				content += item.name + " | " + item.startValue + " | " + 
-					item.endValue + " | " + item.lastUpdated + " | " + item.id + "\n";
+				tab.push([item.name, item.startValue, item.endValue, item.lastUpdated, item.id]);
 			}
+			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
 
 	//user groups
 	if (metaData.userGroups && metaData.userGroups.length > 0) {
 		referenced["userGroups"] = true;
+		toc.push({"id": "userGroups", "name": "User Groups"});
 		
-		content += "\n## User Groups\n";
-		content += "Name | Last updated | UID\n";
-		content += "--- | --- | --- \n";
-
+		content += utils.htmlHeader("User Groups", 2, "userGroups");
+		tab = [["Name", "Last updated", "UID"]];
+		
 		for (var i = 0; i < metaData.userGroups.length; i++) {
 			var item = metaData.userGroups[i];
-			content += item.name + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//users
 	if (metaData.users && metaData.users.length > 0) {
 		referenced["users"] = true;
 		
-		content += "\n## Users\n";
-		content += "Username | Last updated | UID\n";
-		content += "--- | --- | --- \n";
+		content += utils.htmlHeader("Users", 2);
+		tab = [["Username", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.users.length; i++) {
 			var item = metaData.users[i];
-			content += item.userCredentials.username + " | " + item.lastUpdated.substr(0,10) + " | " + item.id + "\n";
+			tab.push([item.userCredentials.username, item.lastUpdated.substr(0,10), item.id]);
 		}
+		content += utils.htmlTableFromArray(tab, true);
 	}
 
 	//Check if there are any objects missing. No point aborting, as .json is
@@ -847,9 +887,19 @@ function makeReferenceList(basePath, metaData) {
 			console.log("Warning: Not included in reference file: " + object);
 		}
 	}
-	
 
-	fs.writeFile(basePath + "/reference.md", content, function(err) {
+
+	var tocContent = "<ul id=\"toc\">";
+	for (var obj of toc) {
+		tocContent += "<li><a href=\"#" + obj.id + "\">" + obj.name + "</a></li>";
+	}
+	tocContent += "</ul>";
+	content = content.replace("TOCPLACEHOLDER", tocContent);
+
+	content += utils.htmlTail();
+	content = pretty(content);
+
+	fs.writeFile(basePath + "/reference.html", content, function(err) {
 		if(err) {
 			console.log(err);
 			deferred.resolve(false);
@@ -868,44 +918,46 @@ function makeReferenceList(basePath, metaData) {
 function makeConfigurationChecklist(basePath, metaData) {
 	var deferred = Q.defer();
 
-	var content = "# Configuration checklist\n";
-	var table;
+	var content = utils.htmlHead("Configuration checklist");
+	content += utils.htmlHeader("Configuration checklist", 1);
 
-
+	var tableData;
 	//indicators
 	if (metaData.indicators && metaData.indicators.length > 0) {
-		table = [];
-		table.push(["Name", "Configured"]);
+		tableData = [];
+		tableData.push(["Name", "Configured"]);
 
 		var ind;
 		for (var i = 0; i < metaData.indicators.length; i++) {
 			ind = metaData.indicators[i];
 
-			table.push([ind.name, "▢"]);
+			tableData.push([ind.name, "▢"]);
 		}
 
-		content += "\n## Indicators \n";
-		content += utils.htmlTableFromArray(table, true, [85, 15], ["left", "center"]);
+		utils.htmlHeader("Indicators", 2);
+		content += utils.htmlTableFromArray(tableData, true, [85, 15], ["left", "center"]);
 	}
 
 	//category option group sets
 	if (metaData.categoryOptionGroups && metaData.categoryOptionGroups.length > 0) {
-		table = [];
-		table.push(["Name", "Configured"]);
+		tableData = [];
+		tableData.push(["Name", "Configured"]);
 
 		var cog;
 		for (var i = 0; i < metaData.categoryOptionGroups.length; i++) {
 			cog = metaData.categoryOptionGroups[i];
 
-			table.push([cog.name, "▢"]);
+			tableData.push([cog.name, "▢"]);
 		}
 
-		content += "\n## Category Option Groups \n";
-		content += utils.htmlTableFromArray(table, true, [85, 15], ["left", "center"]);
+		utils.htmlHeader("Category Option Groups, 2");
+		content += utils.htmlTableFromArray(tableData, true, [85, 15], ["left", "center"]);
 	}
 
+	content += utils.htmlTail();
+	content = pretty(content);
 
-	fs.writeFile(basePath + "/configuration.md", content, function(err) {
+	fs.writeFile(basePath + "/configuration.html", content, function(err) {
 		if(err) {
 			console.log(err);
 			deferred.resolve(false);
@@ -924,20 +976,21 @@ function makeConfigurationChecklist(basePath, metaData) {
 function makeAvailabilityChecklist(basePath, metaData) {
 	var deferred = Q.defer();
 
-	var content = "# Availability mapping\n";
+	var content = utils.htmlHead("Availability mapping");
+	content += utils.htmlHeader("Availability mapping", 1);
 
 	//data elements
 	if (metaData.dataSets && metaData.dataElements && metaData.dataElements.length > 0) {
-		content += "\n## Data elements \n";
+		content += utils.htmlHeader("Data elements", 2);
 		
 		for (var ds of metaData.dataSets) {
-			content += "\n### " + ds.name + " \n";
+			content += utils.htmlHeader(ds.name, 3);
 			content += dataElementAvailabilityTable(dataElements(ds, metaData), metaData);
 		}
 		
 		var unGrouped = standaloneDataElements(metaData);
 		if (unGrouped.length > 0) {
-			content += "\n### Other \n";
+			content += utils.htmlHeader("Other", 3);
 			content += dataElementAvailabilityTable(unGrouped, metaData);
 		}
 	}
@@ -945,12 +998,14 @@ function makeAvailabilityChecklist(basePath, metaData) {
 
 	//indicators
 	if (metaData.indicators && metaData.indicators.length > 0) {
-		content += "\n## Indicators \n";
+		content += utils.htmlHeader("Indicators", 2);
 		content += indicatorAvailabilityTable(metaData);
 	}
 
+	content += utils.htmlTail();
+	content = pretty(content);
 
-	fs.writeFile(basePath + "/availability.md", content, function(err) {
+	fs.writeFile(basePath + "/availability.html", content, function(err) {
 		if(err) {
 			console.log(err);
 			deferred.resolve(false);
@@ -1146,7 +1201,7 @@ function dataSetSectionElement(dataSet, metaData) {
 
 
 function programSectionFromStageAndElement(stageId, dataElementId, metaData) {
-	for (var pss of metaData.programStageSections) {
+	for (var pss of metaData.programStageSections) {
 		if (pss.programStage.id == stageId) {
 			for (var de of pss.dataElements) {
 				if (de.id == dataElementId) {

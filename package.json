@@ -5,6 +5,7 @@
   "dependencies": {
     "json-format": "^1.0.1",
     "jsonfile": "^2.4.0",
+    "pretty": "^2.0.0",
     "prompt": "^1.0.0",
     "q": "^1.4.1",
     "request": "^2.88.0",

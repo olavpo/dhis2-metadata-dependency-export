@@ -8,6 +8,10 @@ var jsonSort = require("sort-json");
 module.exports.saveFileJson = saveFileJson;
 module.exports.sortMetaData = sortMetaData;
 module.exports.htmlTableFromArray = htmlTableFromArray;
+module.exports.htmlTableFromArrayVertical = htmlTableFromArrayVertical;
+module.exports.htmlHeader = htmlHeader;
+module.exports.htmlHead = htmlHead;
+module.exports.htmlTail = htmlTail;
 module.exports.plainIdsFromObjects = plainIdsFromObjects;
 module.exports.idsFromIndicatorFormula = idsFromIndicatorFormula;
 module.exports.programIndicatorIdsFromIndicatorFormula = programIndicatorIdsFromIndicatorFormula;
@@ -65,39 +69,90 @@ function sortMetaData(metaData) {
 //Use HTML for tables, so ensure support for newlines etc
 function htmlTableFromArray(content, header, columnWidths, alignment) {
 
-	if (content.length < 1 || !columnWidths || columnWidths.length != content[0].length) {
-		console.log("Invalid parameters - need at least header");
+	if (content.length < 1) {
+		console.log("Invalid parameters - need at least one row");
 		return "";
 	}
 
-	var tableWidth = 100;
-	var table = "\n<table width=\"" + tableWidth + "%\">\n";
+	var table = "<table>";
 	if (columnWidths) {
 		for (var i = 0; i < columnWidths.length; i++) {
-			table += "\t<col width=\"" + columnWidths[i] + "%\">\n";
+			table += "<col width=\"" + columnWidths[i] + "%\">";
 		}
 	}
 
 	if (header) {
-		table += "\t<tr>\n";
+		table += "<tr>";
 		for (var i = 0; i < content[0].length; i++) {
-			table += "\t\t<th>" + content[0][i] + "</th>\n";
+			table += "<th>" + content[0][i] + "</th>\n";
 		}
-		table += "\t</tr>\n";
+		table += "</tr>";
 	}
 
-	for (var i = 1; i < content.length; i++) {
-		table += "\t<tr>\n";
+	for (var i = (header ? 1 : 0); i < content.length; i++) {
+		table += "<tr>";
 		for (var j = 0; j < content[i].length; j++) {
-			if (alignment) table += "\t\t<td align=\"" + alignment[j] + "\">" + content[i][j] + "</td>\n";
-			else table += "\t\t<td>" + content[i][j] + "</td>\n";
+			if (alignment) table += "<td align=\"" + alignment[j] + "\">" + content[i][j] + "</td>";
+			else table += "<td>" + content[i][j] + "</td>";
 		}
-		table += "\t</tr>\n";
+		table += "</tr>";
 	}
 
-	table += "</table>\n\n";
+	table += "</table>";
 
 	return table;
+}
+
+//Use HTML for tables, so ensure support for newlines etc
+function htmlTableFromArrayVertical(content, columnWidths, alignment) {
+
+	if (content.length < 1) {
+		console.log("Invalid parameters - need at least one row");
+		return "";
+	}
+
+	var table = "<table>";
+	if (columnWidths) {
+		for (var i = 0; i < columnWidths.length; i++) {
+			table += "<col width=\"" + columnWidths[i] + "%\">";
+		}
+	}
+
+	for (var i = 0; i < content.length; i++) {
+		table += "<tr>";
+
+		//First (column) is header
+		if (alignment) table += "<th align=\"" + alignment[0] + "\">" + content[i][0] + "</th>";
+		else table += "<th>" + content[i][0] + "</th>";
+
+		for (var j = 1; j < content[i].length; j++) {
+			if (alignment) table += "<td align=\"" + alignment[j] + "\">" + content[i][j] + "</td>";
+			else table += "<td>" + content[i][j] + "</td>";
+		}
+		table += "</tr>";
+	}
+
+	table += "</table>";
+
+	return table;
+}
+
+function htmlHeader(text, level, id, cls) {
+	var html = "<h";
+	html += level;
+	if (id) html += " id=\"" + id + "\"";
+	if (cls) html += " class=\"" + cls + "\"";
+	html += ">" + text + "</h" + level + ">";
+	return html;
+}
+
+
+function htmlHead(title) {
+	return "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"></meta><title>" + title + "</title></head><body>";
+}
+
+function htmlTail() {
+	return "</body></html>";
 }
 
 
