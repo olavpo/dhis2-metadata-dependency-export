@@ -245,12 +245,15 @@ function processDashboard() {
 	//Remove current configuration of indicators and cateogry option groups
 	clearIndicatorFormulas();
 	clearCategoryOptionGroups();
+
+	//Reset/remove lat/long/zoom on maps
+	clearMapZoom();
 	
 	//Add prefix to objects to be mapped
 	prefixIndicators();
 	prefixCategoryOptionGroups();
 	
-	//Make sure we don't include orgunit assigment in datasets or users
+	//Make sure we don't include orgunit assigment in datasets or users, and orgunit levels in predictors
 	clearOrgunitAssignment();
 
 	//Remove ownership
@@ -262,7 +265,7 @@ function processDashboard() {
 	//Make sure the "default defaults" are used
 	setDefaultUid();
 
-	//Remove invalid references to data elements or indicators from groups
+	//Remove invalid references to data elements, indicators, catOptGroups from groups (group sets)
 	//Verify that there are no data elements or indicators without groups
 	if (!validateGroupReferences()) success = false;	
 	
@@ -398,11 +401,14 @@ function processAggregate() {
 
 	//Remove users from user groups
 	clearUserGroups();
+
+	//Reset/remove lat/long/zoom on maps
+	clearMapZoom();
 		
 	//Make sure the "default defaults" are used
 	setDefaultUid();
 	
-	//Make sure we don't include orgunit assigment in datasets or users
+	//Make sure we don't include orgunit assigment in datasets or users, or orgunit levels in predictors
 	clearOrgunitAssignment();
 	
 	//Verify that all data elements referred in indicators, validation rules,
@@ -956,6 +962,11 @@ function clearOrgunitAssignment() {
 		metaData.users[i].dataViewOrganisationUnits = [];
 		metaData.users[i].teiSearchOrganisationUnits = [];
 	}
+
+
+	for (var i = 0; metaData.hasOwnProperty("predictors") && i < metaData.predictors.length; i++) {
+		metaData.predictors[i].organisationUnitLevels = [];
+	}
 	
 }
 
@@ -973,6 +984,23 @@ function clearIndicatorFormulas() {
 function clearCategoryOptionGroups() {
 	for (var i = 0; metaData.categoryOptionGroups && i < metaData.categoryOptionGroups.length; i++) {
 		metaData.categoryOptionGroups[i].categoryOptions = [];
+	}
+}
+
+
+//Clear/reset map lat/long/zoom
+function clearMapZoom() {
+	for (var i = 0; metaData.maps && i < metaData.maps.length; i++) {
+		if (parseInt(dhis2version.split(".")[1]) < 29) {
+			metaData.maps[i].latitude = 0;
+			metaData.maps[i].longitude = 0;
+			metaData.maps[i].zoom = 2;
+		}
+		else {
+			delete metaData.maps[i].latitude;
+			delete metaData.maps[i].longitude;
+			delete metaData.maps[i].zoom;
+		}
 	}
 }
 
@@ -1398,6 +1426,23 @@ function validateGroupReferences() {
 			});
 		}
 	}
+
+
+	//catetory option group membership
+	for (var i = 0; metaData.hasOwnProperty("categoryOptionGroups") && i < metaData.categoryOptionGroups.length; i++) {
+		var group = metaData.categoryOptionGroups[i];
+		var validOptions = [];
+		for (var j = 0; group.hasOwnProperty("categoryOptions") && j < group.categoryOptions.length; j++) {
+			var option = group.categoryOptions[j];
+
+			//Check if the option referenced is part if the category options
+			if (objectExists("categoryOptions", option.id)) {
+				validOptions.push(option);
+			}
+		}
+		metaData.categoryOptionGroups[i].categoryOptions = validOptions;
+	}
+
 	
 	if (unGrouped.length > 0) {
 		console.log("\nERROR | Data elements/indicators referenced, but not in any groups:");
@@ -1541,10 +1586,27 @@ function packageLabel() {
 //Make folder
 function makeFolder() {
 
-	var basePath = currentExport._basePath + "/" + packageLabel();
+	var path = currentExport._basePath + "/" + currentExport._code;;
+
+
+	var type = "";
+	switch (currentExport._type) {
+	case "completeAggregate": 
+		type = "COMPLETE";
+		break;
+	case "dashboardAggregate":
+		type = "DASHBOARD";
+		break;
+	case "tracker":
+		type = "TRACKER";
+		break;
+	}
+	path += "_" + type;
+	path += "_V" + currentExport._version.substr(0,1); //Only major version
+	path += "_DHIS" + dhis2version;
 	
 	try {
-		fs.mkdirSync(basePath);
+		fs.mkdirSync(path);
 	} 
 	catch (err) {
 		if (err.code !== "EEXIST") {
@@ -1552,5 +1614,5 @@ function makeFolder() {
 		}
 	}
 	
-	return basePath;
+	return path;
 }
