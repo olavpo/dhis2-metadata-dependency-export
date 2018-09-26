@@ -163,7 +163,7 @@ function startExport() {
 
 	console.log("\n***** Packaging " + currentExport._name + " *****");
 
-	if (currentExport._type === "completeAggregate") {
+	if (currentExport._type === "completeAggregate" || currentExport._type === "custom") {
 		exportAggregate();
 	}
 
@@ -768,7 +768,7 @@ function indicators() {
 
 function indicatorTypes() {	
 	var ids = [], ind = metaData.indicators;
-	for (var i = 0; i < ind.length; i++) {
+	for (var i = 0; ind && i < ind.length; i++) {
 		ids.push(ind[i].indicatorType.id);
 	}
 
@@ -847,7 +847,7 @@ function predictors() {
 	var deferred = Q.defer();
 
 	var dataElementIds = [];
-	for (var i = 0; i < metaData["dataElements"].length; i++) {
+	for (var i = 0; metaData.dataElements && i < metaData["dataElements"].length; i++) {
 		dataElementIds.push(metaData["dataElements"][i].id);
 	}
 
@@ -1249,7 +1249,7 @@ function validateDataElementReference() {
 
 	//Data elements/data sets from indicator formulas
 	var result;
-	for (var i = 0; i < metaData.indicators.length; i++) {
+	for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
 		result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator, 
 			metaData.indicators[i].denominator, true);
 			
@@ -1565,6 +1565,9 @@ function packageLabel() {
 	case "completeAggregate": 
 		type = "COMPLETE";
 		break;
+	case "custom": 
+		type = "CUSTOM";
+		break;
 	case "dashboardAggregate":
 		type = "DASHBOARD";
 		break;
@@ -1586,13 +1589,16 @@ function packageLabel() {
 //Make folder
 function makeFolder() {
 
-	var path = currentExport._basePath + "/" + currentExport._code;;
+	var path = currentExport._basePath + "/" + currentExport._code;
 
 
 	var type = "";
 	switch (currentExport._type) {
 	case "completeAggregate": 
 		type = "COMPLETE";
+		break;
+	case "custom": 
+		type = "CUSTOM";
 		break;
 	case "dashboardAggregate":
 		type = "DASHBOARD";
