@@ -21,18 +21,28 @@ function makeReferenceList(basePath, metaData) {
 		referenced[object] = false;
 	}
 
-	var toc = [];
+	var toc = [], tab = [];
 
 	var content = utils.htmlHead("Metadata reference");
-	content += "TOCPLACEHOLDER";
 	content += utils.htmlHeader("Metadata reference", 1);
+	content += "TOCPLACEHOLDER";
 
-	content += "<span id=\"package\">" + metaData.package + "</span>";
+	content += utils.htmlHeader("Package info", 2);
+	var parts = metaData.package.split("_");
+	tab.push(["Property", "Value"]);
+	tab.push(["Code", parts[0]]);
+	tab.push(["Type", parts[1]]);
+	tab.push(["Version", parts[2]]);
+	tab.push(["DHIS2 version", parts[3]]);
+	tab.push(["Created", parts[4]]);
+	tab.push(["Identifier", metaData.package]);
+	content += utils.htmlTableFromArrayVertical(tab);
+	
 	referenced["package"] = true;
 	toc.push({"id": "package", "name": "Package ID"});
 
 
-	var tab;
+	
 
 	//tracked entity types
 	if (metaData.trackedEntityTypes && metaData.trackedEntityTypes.length > 0) {
@@ -889,11 +899,11 @@ function makeReferenceList(basePath, metaData) {
 	}
 
 
-	var tocContent = "<ul id=\"toc\">";
+	var tocContent = "<div id=\"tocContainer\"><ul>";
 	for (var obj of toc) {
 		tocContent += "<li><a href=\"#" + obj.id + "\">" + obj.name + "</a></li>";
 	}
-	tocContent += "</ul>";
+	tocContent += "</ul></div>";
 	content = content.replace("TOCPLACEHOLDER", tocContent);
 
 	content += utils.htmlTail();
