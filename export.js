@@ -303,7 +303,7 @@ function saveDashboard() {
 	var basePath = makeFolder();	
 	
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + "_" + new Date().toISOString();
+	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
 	
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
@@ -455,7 +455,7 @@ function saveAggregate() {
 	var basePath = makeFolder();	
 	
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + "_" + new Date().toISOString();
+	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
 	
 	
 	//Save metadata to json file and documentation to markdown files
@@ -614,7 +614,7 @@ function saveTracker() {
 	var basePath = makeFolder();	
 	
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + "_" + new Date().toISOString();
+	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
 	
 	
 	//Save metadata to json file and documentation to markdown files
