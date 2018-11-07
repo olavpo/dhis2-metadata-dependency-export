@@ -1144,14 +1144,19 @@ function validateFavoriteDataItems() {
 			for (var dimItem of item.dataDimensionItems) {
 
 				if (dimItem.dataDimensionItemType != "INDICATOR") {
-					var nameableItem = (type == "mapViews") ? 
-						mapFromMapView(item.id) : item;
+
+
+					//Exception: custom objects we list, but don't stop the export
+					var abort = customObject(type, item.id) ? false : true;						
 					
+					var nameableItem = (type == "mapViews") ? mapFromMapView(item.id) : item;
+						
 					issues.push({
 						"id": nameableItem.id,
 						"name": nameableItem.name,
 						"type": type,
-						"error": dimItem.dataDimensionItemType
+						"error": dimItem.dataDimensionItemType,
+						"abort": abort
 					});
 				}
 			}
@@ -1161,8 +1166,11 @@ function validateFavoriteDataItems() {
 	if (issues.length > 0) {	
 		console.log("\nERROR | Favourites not using indicators only:");
 		
+		abort = false;
+
 		var printed = {};
 		for (var issue of issues) {
+			abort = abort || issue.abort;
 			if (!printed[issue.id + issue.error]) {
 				console.log(issue.type + ": " + issue.id + " - '" + issue.name + 
 					"': " + issue.error);
@@ -1170,7 +1178,7 @@ function validateFavoriteDataItems() {
 			}
 			
 		}
-		return false;
+		return !abort;
 	}
 	else return true;
 }
@@ -1555,6 +1563,21 @@ function customObjectIds(objType) {
 		}
 	}
 	return [];
+}
+
+//Checks if an item with the given type and id is custom, in which case we ignore validation issues 
+function customObject(objType, objId) {
+	customObjectsExported[objType] = true;
+	if (!currentExport.hasOwnProperty("customObjects")) return false;
+	
+	for (var obj of currentExport.customObjects) {
+		if (obj.objectType == objType) {
+			for (var id of obj.objectIds) {
+				if (id == objId) return true;
+			}
+		}
+	}
+	return false;
 }
 
 
