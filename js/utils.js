@@ -27,9 +27,8 @@ module.exports.arrayFromKeys = arrayFromKeys;
 function saveFileJson(fileName, jsonContent) {
 	var deferred = Q.defer();
 
-	//first, sort the top-level json properties
+	//sort the json file properties - other content has already been sorted
 	jsonContent = jsonSort(jsonContent, {"ignoreCase": true, "reverse": false, "depth": 10});
-
 
 	//Save file
 	var data = jsonFormat(jsonContent);
@@ -46,22 +45,56 @@ function saveFileJson(fileName, jsonContent) {
 }
 
 
-
 function sortMetaData(metaData) {
 	var objects = arrayFromKeys(metaData);
-	var items;
 	for (var i = 0; i < objects.length; i++) {
-		if (metaData[objects[i]].length === 0) {
-			continue;
-		}
-		items = metaData[objects[i]];
-
-		if (items[0].hasOwnProperty("name")) {
-			metaData[objects[i]] = arraySortByProperty(items, "name", false, false);
+		if (Array.isArray(metaData[objects[i]])) {
+			metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
 		}
 	}
 	
 	return metaData;
+}
+
+
+function sortMetaDataArray(toSort) {
+
+	if (toSort.length == 0) return [];
+
+	//If possible use name - assume that sort order is not important for "nameable" objects
+	if (toSort[0].hasOwnProperty("name")) {
+		
+		//first sort by ID, then name, where possible - makes sort reliable when there are duplicates in the names (e.g. catOptCombos)
+		if (toSort[0].hasOwnProperty("id")) {
+			toSort = arraySortByProperty(toSort, "id", false, false);
+		}
+
+		toSort = arraySortByProperty(toSort, "name", false, false);
+	}
+	
+
+	//Some special cases:
+	//translations
+	if (toSort[0].hasOwnProperty("value") && toSort[0].hasOwnProperty("locale") && toSort[0].hasOwnProperty("property")) {
+		toSort = arraySortByProperty(toSort, "property", false, false);
+		toSort = arraySortByProperty(toSort, "locale", false, false);
+	}
+
+	//legends
+	if (toSort[0].hasOwnProperty("startValue") && toSort[0].hasOwnProperty("endValue")) {
+		toSort = arraySortByProperty(toSort, "startValue", true, false);
+	}
+
+	//Check if the objects in the array contains other arrays that should be sorted
+	for (var i = 0; i < toSort.length; i++) {
+		for (var prop in toSort[i]) {
+			if (Array.isArray(toSort[i][prop])) {
+				toSort[i][prop] = sortMetaDataArray(toSort[i][prop]);
+			}
+		}
+	}
+
+	return toSort;
 }
 
 
@@ -268,7 +301,7 @@ function arraySortByProperty(array, property, numeric, reverse) {
 			res = b[property] - a[property] ;
 		}
 		else {
-			res = a[property] < b[property] ? -1 : 1;
+			res = a[property].toLowerCase() < b[property].toLowerCase() ? -1 : 1;
 		}
 		if (reverse) return -res;
 		else return res;
