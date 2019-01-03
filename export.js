@@ -278,13 +278,35 @@ function processDashboard() {
 	//Verify that no unsupported data dimensions are used
 	if (!validateFavoriteDataDimension()) success = false;
 	
-	
+	/** CUSTOM MODIFICATIONS */
+	if (currentExport.hasOwnProperty("_customFuncs")) {
+		for (var customFunc of currentExport._customFuncs) {
+			var func = new Function("metaData", customFunc);
+			func(metaData); 
+		}
+	}
+
 	if (success) {
 		console.log("✔ Validation passed");
 		saveDashboard();
 	}
 	else {
-		cancelCurrentExport();
+		console.log("");
+		var schema = {
+			properties: {
+				continue: {
+					description: "Validation failed. Continue anyway? (yes/no)",
+					required: true,
+					type: "string",
+					default: "no",
+				}
+			}
+		};
+		
+		prompt.get(schema, function (err, result) {	
+			if (result.continue == 'yes')  saveDashboard();
+			else cancelCurrentExport();
+		});  
 	}
 }
 
@@ -431,12 +453,35 @@ function processAggregate() {
 	//Verify that data sets with section include all data elements
 	if (!validationDataSetSections()) success = false;
 	
+	/** CUSTOM MODIFICATIONS */
+	if (currentExport.hasOwnProperty("_customFuncs")) {
+		for (var customFunc of currentExport._customFuncs) {
+			var func = new Function("metaData", customFunc);
+			func(metaData); 
+		}
+	}
+	
 	if (success) {
-		console.log("Ready to save " + currentExport._name);
+		console.log("✔ Validation passed");
 		saveAggregate();
 	}
 	else {
-		cancelCurrentExport();
+		console.log("");
+		var schema = {
+			properties: {
+				continue: {
+					description: "Validation failed. Continue anyway? (yes/no)",
+					required: true,
+					type: "string",
+					default: "no",
+				}
+			}
+		};
+		
+		prompt.get(schema, function (err, result) {	
+			if (result.continue == 'yes') saveAggregate();
+			else cancelCurrentExport();
+		});  
 	}
 }
 
@@ -585,17 +630,34 @@ function processTracker() {
 
 
 	/** CUSTOM MODIFICATIONS */
-	for (var customFunc of currentExport._customFuncs) {
-		var func = new Function("metaData", customFunc);
-		func(metaData); 
+	if (currentExport.hasOwnProperty("_customFuncs")) {
+		for (var customFunc of currentExport._customFuncs) {
+			var func = new Function("metaData", customFunc);
+			func(metaData); 
+		}
 	}
 	
 	if (success) {
-		console.log("Ready to save " + currentExport._name);
+		console.log("✔ Validation passed");
 		saveTracker();
 	}
 	else {
-		cancelCurrentExport();
+		console.log("");
+		var schema = {
+			properties: {
+				continue: {
+					description: "Validation failed. Continue anyway? (yes/no)",
+					required: true,
+					type: "string",
+					default: "no",
+				}
+			}
+		};
+		
+		prompt.get(schema, function (err, result) {	
+			if (result.continue == 'yes')  saveTracker();
+			else cancelCurrentExport();
+		});  
 	}
 }
 

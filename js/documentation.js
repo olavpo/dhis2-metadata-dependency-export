@@ -831,6 +831,21 @@ function makeReferenceList(basePath, metaData) {
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
+	//sqlViews
+	if (metaData.sqlViews && metaData.sqlViews.length > 0) {
+		referenced["sqlViews"] = true;
+		toc.push({"id": "sqlViews", "name": "SQL views"});
+		
+		content += utils.htmlHeader("SQL views", 2, "sqlViews");
+		tab = [["Name", "Last updated", "UID"]];
+
+		for (var i = 0; i < metaData.sqlViews.length; i++) {
+			var item = metaData.sqlViews[i];
+			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
+		}
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
 	//legend sets and legends
 	if (metaData.legendSets && metaData.legendSets.length > 0) {
 		referenced["legendSets"] = true;
