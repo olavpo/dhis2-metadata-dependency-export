@@ -1,12 +1,11 @@
 # Metadata dependency export
 Node.js backend to export DHIS 2 metadata packages, along with documentation.
 
-Two types of packages can be created:
+Three types of packages can be created:
 
-* *dashboards* - includes analytical products only, such as dashboards, favourites, indicators (with empty formulas) etc.
-* *aggregate* - includes data collection and analytical products, such as data sets, data elements, dashboards, favourites, indicators etc.
-
-Export of tracker packages will be added in the future.
+* *dashboards* - includes analytical products (dashboards) with dependencies only, such as dashboards, favourites, indicators (with empty formulas).
+* *aggregate* - includes data collection (data sets) and analytical products (dashboards) with dependencies, such as data sets, data elements, dashboards, favourites, indicators etc.
+* *tracker* - includes tracker data collection (programs) with dependencies, as well as analytical products.
 
 See the Configuration section below for more information on what is/can be included in the different pacakges.
 
@@ -33,6 +32,7 @@ Running the script creates a folder with several files, in the following format:
 `CODE_PACKAGE-TYPE_PACKAGE-VERSION_DHIS2-VERSION`, e.g. `HIV_DASHBOARD_V1.0_DHIS2.27`
 
 Within this folder, there will be 3 or 4 files depending on the package type:
+
 * metadata.json - DHIS2 metadata
 * reference.md - human readable listing of included metadata in markdown format
 * availability.md - tool that can be used for checking which data elements/indicators from the package are available in a DHIS2 instance
@@ -40,81 +40,280 @@ Within this folder, there will be 3 or 4 files depending on the package type:
 
 
 ### Configuration
-The export script relies on a configuration file in .json format. The configuration file consiste of an array of json objects specifying packages.
+The export script relies on a configuration file in .json format. The configuration file consists of an array of json objects that define what should be included in a particular package. Certain properties are common to all types of packages (complete aggregate, dashboard aggregate and tracker), others only for some.
+
+**Properties related to the package**
+
+| Property        | Description           |
+| ------------- |:-------------| -----|
+| _basePath     | Path to a folder in which the packages will be saved |
+| _code     | Code for the package. Used for package identifier, sub-folder name etc. |
+| _customFuncs     | Javascript code that will be executed after metadata export is finished, but before the metadata is saved. Allows necessary modifications of the metadata if needed. |
+| _name     | Name of the package, used for logs and debugging  |
+| _ownership  | Specifies how to manage ownership of metadata in the package (i.e. association with a DHIS2 user). Described in more detail below. |
+| _sharing | Specifies how to manage sharing of metadata in the package (i.e. association with a DHIS2 user). Described in more detail below. |
+| _type     | Type of metadata package. "completeAggregate", "dashboardAggregate", or "tracker" |
+| _url     | List with URL of one or more DHIS2 instances to export the package from.  |
+| _version     | Version number of the package. Used for package identifier, sub-folder name etc. |
+| _prefix     | (dashboardAggregate only) Prefix that will be added to indicators and category option groups that require configuration. |
+
+
+**Properties for specifying metadata to include in the package**
+
+| Property        | Description           | Example  |
+| ------------- |:-------------| -----|
+| customObjects     | Specifies arbitrary metadata objects to include in the package, independent of any dependencies they may have. |
+| dashboardIds | List with UIDs of dashboards that will be included in the package, with their dependences (favourites and indicators) |
+| dataElementGroupIds | List with UIDs of data element groups that will be included in the package. Data elements in the groups are not included, and reference to any data element that is not part of the package will be removed. |
+| dataSetIds | List with UIDs of dashboards that will be included in the package, with their dependencies. Uses DHIS2's built in metadata dependency export. |
+| exportDataSetIds | List with UIDs of data sets for which dependencies will be included in the package, *but not the data set itself*. |
+| exportIndicatorGroupsIds | List with UIDs of indicator groups for which indicators will be included in the package, *but not the group itself* |
+| indicatorGroupIds | List with UIDs of indicator groups that will be included in the package. Indicators in the groups are not included, and reference to any data element that is not part of the package will be removed. |
+| validationRuleGroupIds | List with UIDs of validation rule groups to include in the package, including validation rules in those groups. |
+
+
+**Ownership**
+
+The *ownership* property allows modification of the ownership of metadata in the package (i.e. the `user` property).
+```
+{
+  "mode": "OVERWRITE",
+  "ownerId": "vUeLeQMSwhN"
+}
+```
+`mode` can be one of the following:
+
+* "IGNORE" - leave ownership as-is
+* "REMOVE" - remove ownership information
+* "OVERWRITE" - set ownership of all data to ownerId specified
+
+The user specified is included in the export.
+
+**Sharing**
+
+The *sharing* property allows modification of the sharing settings of metadata in the package. This included public sharing (`publicAccess`), sharing with groups (`userGroupAccesses`) and sharing with individual users (`userAccesses`).@
 
 ```
-{ 
-  "export": [                                   //Array specifying the metadata packages to export
-    {                                           //Example of "dashboard" package
-      "_basePath": "/Users/Olav/Downloads",     //Path to where folder(s) with metadata and documentation will be stored
-      "_prefix": "[CONFIG]",                    //Prefix for indicators etc that needs post-import configuration. Relevant for dashboard packages only.
-      "_code": "TB",                            //Code for the package(s), used for naming the export folder and creating a package identifier
-      "_version": "1.0",                        //Version of the package(s)
-      "_sharing": {                             //Sharing setting that will be applied to all metadata in the export, overwriting existing sharing
-        "accessGroupIds": ["pyu2ZlNKbzQ"],      //User groups with metadata and data view access. Groups will be included in the export.
-        "adminGroupIds": ["Ubzlyfqm1gO"],       //User groups with metadata edit and data view access. Groups will be included in the export.
-        "publicAccess": "--------",             //Public access
-        "userId": "vUeLeQMSwhN",                //User which will be set as owner of all metadata. User will be included in the export.
-      "_url": [                                 //Array of URLs of the server to export from. Multiple are allowed so that the same metadata can be exported from instances running different DHIS2 versions.
-        "https://who.dhis2.net/dev", 
-        "https://who.dhis2.net/demo"
-      ],
-      "_name": "TB dashboard",                  //Name of the package, used in documentation, logging etc
-      "_type": "dashboardAggregate",            //Type of export. Current options are "dashboardAggregate" or "completeAggregate"
-      "dashboardIds": [                     //IDs of dashboards to export, including dependencies, i.e. favourites and indicators used in those favourites
-        "w48LnY9Gamc", 
-        ...
+{
+  "groupMode": "MERGE",
+  "groups": [
+    {
+      "id": "pyu2ZlNKbzQ",
+      "metadata": "VIEW",
+      "data": "VIEW"
+	},
+	{
+      "id": "Ubzlyfqm1gO",
+	  "metadata": "EDIT",
+	  "data": "VIEW"
+	}
+  ],
+  "groupExport": true,
+  "userMode": "REMOVE",
+  "users": [],
+  "usersExport": false,
+  "publicAccess": {
+    "metadata": "VIEW",
+    "data": "VIEW"
+  }
+}
+```
+
+`groupMode/userMode`, `groups/users` and `groupExport/userExport` are equivalent, except referring to sharing with user groups and individual users.
+
+`groupMode/userMode` can be one of the following:
+
+* "IGNORE" - leave sharing as-is
+* "REMOVE" - remove sharing information
+* "FILTER" - remove sharing with any groups/users not specified in the configuration
+* "MERGE": - combine existing sharing settings with any groups/users specified in the configuration. If access rights are different, those in the configuration are used
+* "OVERWRITE" - set sharing to that specified in the configuration file
+
+`groups/users` is an array of objects, where each object refers to a user group/user. It should include the ID, and (except for IGNORE, REMOVE, and FILTER) the metadata and data access to give to the group. Options for metadata and data access are "NONE", "VIEW" and "EDIT". Data access is only applied to relevant objects according to the DHIS2 schema. If a group/user has no metadata OR data access to an object, it is not included.
+
+`groupExport/userExport` is used to indicate whether or not the user groups and users should themselves be included in the package.
+
+`publicAccess` is an object with "metadata" and "data" properties, where the options are "NONE", "VIEW" and "EDIT".
+
+
+#### Example configuration with comments
+``` js
+{
+  "export": [						//array of configurations, each is one package
+    {
+      "_basePath": "../TB", 		//path to a folder in which the packages will be saved
+      "_code": "TB", 
+       "_customFuncs": [			//function applied to the metadata after the export has been completed. Received "metaData" object as paramter
+		"var dashItems = []; for (var i = 0; i < metaData.dashboards.length; i++) { if (metaData.dashboards[i].id == 'u0ZDGUlrxz8') { dashItems = metaData.dashboards[i].dashboardItems; metaData.dashboards.splice(i, 1); break; } } if (metaData.hasOwnProperty('dashboardItems')) { for (var item of dashItems) { for (var i = 0; i < metaData.dashboardItems.length; i++) { if (metaData.dashboardItems[i].id == item.id) { metaData.dashboardItems.splice(i, 1); break; } } } }"
+        ],
+      "_name": "TB dashboard", 
+      "_prefix": "[CONFIG]", 
+      "_ownership": {				//allows modification of the user set as owner of metadata objects
+        "mode": "OVERWRITE",
+        "ownerId": "vUeLeQMSwhN"
+      },
+      "_sharing": {					//allows modification of sharing settings
+        "groupMode": "OVERWRITE",
+        "groups": [
+          {
+            "id": "pyu2ZlNKbzQ",
+            "metadata": "VIEW",
+            "data": "VIEW"
+          },
+          {
+            "id": "Ubzlyfqm1gO",
+            "metadata": "EDIT",
+            "data": "VIEW"
+          }
+        ],
+        "groupExport": true,		
+        "userMode": "REMOVE",
+        "users": [],
+        "userExport": false,
+        "publicAccess": {
+          "metadata": "VIEW",
+          "data": "VIEW"
+        }
+      },
+      "_type": "dashboardAggregate", //type of package
+      "_url": [
+        "https://who.dhis2.org/demo" //servers to export 
       ], 
-      "indicatorGroupIds": [                //IDs of indicator groups to export. Indicator in the groups are NOT included unless they are also in e.g. dashboards.
-        "V4SoC7TzFMi", 
-        ...
+      "_version": "1.2.0", 
+      "customObjects": [			//custom objects to include. These do cause validation to fail.
+        {
+          "objectIds": ["BuTAAbV4zMg"],
+          "objectType": "reports"
+        }
       ],
-      "exportIndicatorGroupsIds": [         //IDs of indicator groups for which indicators will be exported (as opposed to the above). The group itself will not be included unless it is also added to "indicatorGroupIds".
-          "F6Sofd7TgMi",
-          ...
+      "dashboardIds": [
+        "w48LnY9Gamc", 
+        "BwYHhBSvLNL", 
+        "VtRtBqorLfR", 
+        "if78tRW7B91", 
+        "MaJqTSteIqg", 
+        "pZXvrpebwFT", 
+        "dp6xqlPGxbA", 
+        "xJXvUOEhnE9", 
+        "CKcF4jgN0hK", 
+        "L2UmLVcb6Dm",
+        "u0ZDGUlrxz8"
+      ], 
+      "exportIndicatorGroupsIds": [], 
+      "indicatorGroupIds": [
+        "V4SoC7TzFMi", 
+        "OMyYjoU07pC", 
+        "QCrsjqhAcWA", 
+        "S0n1torLnUz", 
+        "I13HBLJTJMb"
       ]
     }, 
-    {                                           //Example of "dashboard" package
-      "_basePath": "/Users/Olav/Downloads",     //Path to where folder(s) with metadata and documentation will be stored
-      "_prefix": "[CONFIG]",                    //Prefix for indicators etc that needs post-import configuration. Relevant for dashboard packages only.
-      "_code": "TB",                            //Code for the package(s), used for naming the export folder and creating a package identifier
-      "_version": "1.0",                        //Version of the package(s)
-      "_sharing": {                             //Sharing setting that will be applied to all metadata in the export, overwriting existing sharing
-        "accessGroupIds": ["pyu2ZlNKbzQ"],      //User groups with metadata and data view access. Groups will be included in the export.
-        "adminGroupIds": ["Ubzlyfqm1gO"],       //User groups with metadata edit and data view access. Groups will be included in the export.
-        "publicAccess": "--------",             //Public access
-        "userId": "vUeLeQMSwhN",                //User which will be set as owner of all metadata. User will be included in the export.
-      "_url": [                                 //Array of URLs of the server to export from. Multiple are allowed so that the same metadata can be exported from instances running different DHIS2 versions.
-        "https://who.dhis2.net/dev", 
-        "https://who.dhis2.net/demo"
+    {								//start of second package to export
+      "_basePath": "../TB", 
+      "_code": "TB",
+      "_customFuncs": [
+		"var dashItems = []; for (var i = 0; i < metaData.dashboards.length; i++) { if (metaData.dashboards[i].id == 'u0ZDGUlrxz8') { dashItems = metaData.dashboards[i].dashboardItems; metaData.dashboards.splice(i, 1); break; } } if (metaData.hasOwnProperty('dashboardItems')) { for (var item of dashItems) { for (var i = 0; i < metaData.dashboardItems.length; i++) { if (metaData.dashboardItems[i].id == item.id) { metaData.dashboardItems.splice(i, 1); break; } } } }"
+        ],
+      "_name": "TB complete", 
+      "_ownership": {
+        "mode": "OVERWRITE",
+        "ownerId": "vUeLeQMSwhN"
+      },
+      "_sharing": {
+        "groupMode": "MERGE",
+        "groups": [
+          {
+            "id": "pyu2ZlNKbzQ",
+            "metadata": "VIEW",
+            "data": "VIEW"
+          },
+          {
+            "id": "Ubzlyfqm1gO",
+            "metadata": "EDIT",
+            "data": "VIEW"
+          },
+          {
+            "id": "UKWx4jJcrKt",
+            "metadata": "NONE",
+            "data": "EDIT"
+          }
+        ],
+        "groupExport": true,
+        "userMode": "REMOVE",
+        "users": [],
+        "usersExport": false,
+        "publicAccess": {
+          "metadata": "VIEW",
+          "data": "VIEW"
+        }
+      }, 
+      "_type": "completeAggregate", 
+      "_url": [
+        "https://who.dhis2.org/demo"
+      ], 
+      "_version": "1.2.0", 
+      "customObjects": [
+        {
+          "objectIds": ["DkmMEcubiPv"], 
+          "objectType": "dataElements"
+        },
+        {
+          "objectIds": ["dQxhOVtwwK8", "StXxQoaz26k"], 
+          "objectType": "reportTables"
+        },
+        {
+          "objectIds": ["BuTAAbV4zMg"],
+          "objectType": "reports"
+        }
       ],
-      "_name": "TB complete",                   //As above
-      "_type": "completeAggregate",             //As above
-      "dashboardIds": [                     //As above
+      "dashboardIds": [
         "w48LnY9Gamc", 
-        ...
+        "BwYHhBSvLNL", 
+        "VtRtBqorLfR", 
+        "if78tRW7B91", 
+        "MaJqTSteIqg", 
+        "pZXvrpebwFT", 
+        "dp6xqlPGxbA", 
+        "xJXvUOEhnE9", 
+        "CKcF4jgN0hK", 
+        "L2UmLVcb6Dm",
+        "u0ZDGUlrxz8"
       ], 
-      "dataElementGroupIds": [              //IDs of data element groups to export. Data elements in the groups are NOT included unless they are also in e.g. dashboards.
+      "dataElementGroupIds": [
         "VGJHJGsfdRR", 
-        ...
+        "aGtzAAao0Mt", 
+        "m54T3OptLaU", 
+        "fAS1m0weZsf", 
+        "V4Ctf7L4wq6", 
+        "gDwHOp9bAdJ"
       ], 
-      "dataSetIds": [                       //IDs of data sets to export, including dependencies, i.e. data elements, data element cateogries etc.
+      "dataSetIds": [
         "OyutuMOPgkt", 
-        ...
+        "lYNYevNTO7B", 
+        "Yhk4Ee59d9y", 
+        "VQTEps77HLq", 
+        "Fn5XKDV6WRY", 
+        "rSfhnkAdm5y", 
+        "kiODgwGG9I2"
       ], 
-      "exportDataSetIds": [                 //IDs of data sets for which only the dependencies will be exported, not the data sets themselves.
-        "gUUBxTWcEUi"
-      ], 
-      "indicatorGroupIds": [                //As above
-        "V4SoC7TzFMi", 
-        ...
-      ], 
-      "exportIndicatorGroupsIds": [         //As above
+      "exportDataSetIds": [], 
+      "exportIndicatorGroupsIds": [
         "S0n1torLnUz"
       ], 
-      "validationRuleGroupIds": [           //Validation rule groups to export, with dependencies, i.e. validation rules.
+      "indicatorGroupIds": [
+        "V4SoC7TzFMi", 
+        "OMyYjoU07pC", 
+        "QCrsjqhAcWA", 
+        "S0n1torLnUz", 
+        "I13HBLJTJMb"
+      ], 
+      "validationRuleGroupIds": [
         "iRCrvkyr4uw", 
-        ...
+        "sgf2zdOiwny", 
+        "dRcxM3sLcNn", 
+        "TumuGy1lmGY", 
+        "vtIZawvyEM7", 
+        "xnxqh8hX6Ag"
       ]
     }
   ]
@@ -128,5 +327,6 @@ to your PATH, so that it can be run like `d2metapack ./hivConfig.json` (where `.
 
 
 ## To-do
-* Support for tracker metadata packages
+* Testing of multi-stage tracker metadata packages
+* Improve naming of properties in the configuration
 
