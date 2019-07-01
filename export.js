@@ -16,6 +16,7 @@ var currentExport;
 var customObjectsExported = {};
 var exporting = false;
 
+var dhis2schema;
 var dhis2version; 
 
 process.on("uncaughtException", function (err) {
@@ -145,13 +146,16 @@ function connectNewInstance() {
 		
 		d2.get("/api/system/info.json").then(function(result) {
 			console.log("\nConnected to instance: " + result.systemName);
-			console.log("DHIS2 version: " + result.version);
 
 			lastUrl = currentExport.url;
 			dhis2version = result.version;
 			
-			startExport();
-
+			//Get schema for this dhis2 instance
+			d2.get("/api/schemas.json?fields=plural,shareable,dataShareable").then( function (schema) {
+				dhis2schema = schema.schemas;
+				console.log("Got DHIS" + result.version + " schema.");
+				startExport();
+			});
 		});
 	});  	
 }
@@ -175,7 +179,6 @@ function startExport() {
 		exportTracker();
 	}
 }
-
 
 
 function cancelCurrentExport() {
@@ -208,9 +211,8 @@ function exportDashboard() {
 			indicators(), 
 			categoryOptionGroupSetStructure(),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
-			saveObject("userGroups", [].concat(currentExport._sharing.accessGroupIds, 
-				currentExport._sharing.adminGroupIds)),
-			saveObject("users", [currentExport._sharing.userId])
+			userGroups(),
+			users()
 		];
 		Q.all(promises).then(function (results) {
 
@@ -256,8 +258,9 @@ function processDashboard() {
 	//Make sure we don't include orgunit assigment in datasets or users, and orgunit levels in predictors
 	clearOrgunitAssignment();
 
-	//Remove ownership
-	removeOwnership();
+	//Configure sharing and metadata ownership
+	configureSharing();
+	configureOwnership();
 
 	//Remove users from user groups
 	clearUserGroups();
@@ -304,7 +307,7 @@ function processDashboard() {
 		};
 		
 		prompt.get(schema, function (err, result) {	
-			if (result.continue == 'yes')  saveDashboard();
+			if (result.continue == "yes")  saveDashboard();
 			else cancelCurrentExport();
 		});  
 	}
@@ -382,9 +385,8 @@ function exportAggregate() {
 			validationRules(),
 			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
-			saveObject("userGroups", [].concat(currentExport._sharing.accessGroupIds, 
-				currentExport._sharing.adminGroupIds)),
-			saveObject("users", [currentExport._sharing.userId])
+			userGroups(),
+			users()
 		];
 		Q.all(promises).then(function (results) {
 
@@ -418,8 +420,9 @@ function processAggregate() {
 	var success = true;
 	console.log("\n2. Validating exported metadata");
 	
-	//Remove ownership
-	removeOwnership();
+	//Configure sharing and metadata ownership
+	configureSharing();
+	configureOwnership();
 
 	//Remove users from user groups
 	clearUserGroups();
@@ -479,7 +482,7 @@ function processAggregate() {
 		};
 		
 		prompt.get(schema, function (err, result) {	
-			if (result.continue == 'yes') saveAggregate();
+			if (result.continue == "yes") saveAggregate();
 			else cancelCurrentExport();
 		});  
 	}
@@ -557,9 +560,8 @@ function exportTracker() {
 			categoryOptionGroupSetStructure(),
 			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
-			saveObject("userGroups", [].concat(currentExport._sharing.accessGroupIds, 
-				currentExport._sharing.adminGroupIds)),
-			saveObject("users", [currentExport._sharing.userId])
+			userGroups(),
+			users()
 		];
 		Q.all(promises).then(function (results) {
 
@@ -593,8 +595,9 @@ function processTracker() {
 	var success = true;
 	console.log("\n2. Validating exported metadata");
 	
-	//Remove ownership
-	removeOwnership();
+	//Configure sharing and metadata ownership
+	configureSharing();
+	configureOwnership();
 
 	//Remove users from user groups
 	clearUserGroups();
@@ -655,7 +658,7 @@ function processTracker() {
 		};
 		
 		prompt.get(schema, function (err, result) {	
-			if (result.continue == 'yes')  saveTracker();
+			if (result.continue == "yes")  saveTracker();
 			else cancelCurrentExport();
 		});  
 	}
@@ -762,7 +765,6 @@ function dependencyExport(type, ids) {
 }
 
 
-
 function limitedDependencyExport(dataSetIds) {
 	if (dataSetIds.length == 0) return true;	
 	
@@ -797,7 +799,6 @@ function limitedDependencyExport(dataSetIds) {
 }
 
 
-
 function indicators() {	
 	var deferred = Q.defer();
 
@@ -827,7 +828,6 @@ function indicators() {
 }
 
 
-
 function indicatorTypes() {	
 	var ids = [], ind = metaData.indicators;
 	for (var i = 0; ind && i < ind.length; i++) {
@@ -836,7 +836,6 @@ function indicatorTypes() {
 
 	return saveObject("indicatorTypes", ids);
 }
-
 
 
 function categoryOptionGroupSetStructure() {
@@ -875,7 +874,6 @@ function categoryOptionGroupSetStructure() {
 }
 
 
-
 function validationRules() {
 	var deferred = Q.defer();
 
@@ -904,7 +902,6 @@ function validationRules() {
 }
 
 
-
 function predictors() {
 	var deferred = Q.defer();
 
@@ -929,7 +926,6 @@ function predictors() {
 }
 
 
-
 function legendSets() {
 	
 	//LegendSets from applicable object types
@@ -948,6 +944,34 @@ function legendSets() {
 	}
 	
 	return saveObject("legendSets", ids);
+}
+
+
+function users() {
+	var ids = [];
+	//Include owner
+	if (currentExport.hasOwnProperty("_ownership")) ids.push(currentExport._ownership.ownerId);
+
+	//Include sharing-related users, is userExport = true
+	if (currentExport._sharing.userExport && currentExport._sharing.users) {
+		for (var user of currentExport._sharing.groups) {
+			ids.push(user.id);
+		}
+	}
+	return saveObject("users", ids);
+}
+
+function userGroups() {
+	var ids = [];
+
+	//Include sharing-related groups, is groupExport = true
+	if (currentExport._sharing.groupExport && currentExport._sharing.groups) {
+		for (var group of currentExport._sharing.groups) {
+			ids.push(group.id);
+		}
+	}
+	
+	return saveObject("userGroups", ids);
 }
 
 
@@ -1006,6 +1030,7 @@ function setDefaultUid() {
 		metaData = JSON.parse(JSON.stringify(metaData).replace(regex, defaultDefault));
 	}
 }
+
 
 /**
  * Clear assignment of orgnuits of dataSets, programs and users.
@@ -1077,49 +1102,161 @@ function clearUserGroups() {
 }
 
 
-//Remove "user", "userAccesses" for applicable objects, set userGroupAccesses and publicaccess according to configuration.json
-function removeOwnership() {
+/**
+ * (User)Group sharing modes:
+ * IGNORE: leave sharing as-is
+ * REMOVE: remove all sharing
+ * FILTER: remove any reference to groups not listed
+ * MERGE: combine existing groups with those specified. If both exist, view/edit setting from config is used.
+ * OVERWRITE: add sharing from config file, ignoring what is there
+ */
+function configureSharing() {
 	for (var objectType in metaData) {
-		var obj = metaData[objectType];
-		for (var j = 0; j < obj.length; j++) {
 		
-			if (obj[j].hasOwnProperty("user")) {
-				obj[j].user = { "id": currentExport._sharing.userId };
-			}
+		//It not iterable or shareable, skip
+		if (!Array.isArray(metaData[objectType])) continue;
+		if (!shareable(objectType)) continue;
 
-			if (obj[j].hasOwnProperty("userAccesses")) {
-				delete obj[j].userAccesses;
-			}
+		//For each object of objectType
+		for (var obj of metaData[objectType]) {
+		
+			//Set sharing
+			setSharing(objectType, obj);
+		}
+	}
+}
 
-			//IF < 29 then no data access sharing
-			var dataAccessSharing;
-			parseInt(dhis2version.split(".")[1]) < 29 ? dataAccessSharing = false : dataAccessSharing = false;
-				
-			if (obj[j].hasOwnProperty("userGroupAccesses")) {
-				//TODO - option for preseverving existing groups?
-				var userGroupAccessSharing = [];
-				for (var k = 0; k < currentExport._sharing.adminGroupIds.length; k++) {
-					userGroupAccessSharing.push({
-						"access": dataAccessSharing ? "rwr-----" : "rw------", 
-						"id": currentExport._sharing.adminGroupIds[k], 
-						"userGroupUid": currentExport._sharing.adminGroupIds[k]
-					});
-				}
-				for (var k = 0; k < currentExport._sharing.accessGroupIds.length; k++) {
-					userGroupAccessSharing.push({
-						"access": dataAccessSharing ? "r-r-----" : "r-------", 
-						"id": currentExport._sharing.accessGroupIds[k], 
-						"userGroupUid": currentExport._sharing.accessGroupIds[k]
-					});
-				}
-				obj[j].userGroupAccesses = userGroupAccessSharing;
+
+function sharingString(auth) {
+	if (auth == "NONE") return "--";
+	else if (auth == "VIEW") return "r-";
+	else if (auth == "EDIT") return "rw";
+	else return "--"; //Assume not specified = NONE
+}
+
+
+function setAccesses(mode, configAccesses, dataShareable, currentAccesses) {
+	if (mode == "IGNORE") return currentAccesses;
+	else if (mode == "REMOVE") return [];
+	else if (mode == "FILTER") {
+		var filtered = [];
+		for (var currentAccess of currentAccesses ? currentAccesses : []) {
+			for (var configAccess of configAccesses) {
+				//If the current group is part of the allowed group add to filtered (to be kept)
+				if (currentAccess.id == configAccess.id) filtered.push(currentAccess);
 			}
-			
-			if (obj[j].hasOwnProperty("publicAccess")) {
-				obj[j].publicAccess = currentExport._sharing.publicAccess;
+		}
+		return filtered;
+	}
+	else if (mode == "MERGE" || mode == "OVERWRITE") {
+		var filtered = [], included = false;
+
+		//If merging, first make sure to keep the existing settings are kept
+		if (mode == "MERGE") {
+			for (var currentAccess of currentAccesses ? currentAccesses : []) {
+				for (var configAccess of configAccesses ? configAccesses : []) {
+					if (currentAccess.id == configAccess.id) {
+						included = true;
+					}
+				}
+				//If the current group is part of the specified groups, do not add
+				if (!included) filtered.push(currentAccess);
+			}
+		}
+
+		//Add the settings from the config
+		for (var configAccess of configAccesses ? configAccesses : []) {
+			var accessString = sharingString(configAccess.metadata);
+			if (dataShareable) accessString += sharingString(configAccess.data) + "----";
+			else accessString += "------";
+
+			if (accessString != "--------") {
+				filtered.push({
+					"id": configAccess.id,
+					"access": accessString
+				});
+			}
+		}
+		return filtered;
+	}
+	else {
+		console.log("Unknown sharing mode: " + auth + ". Review _sharing property of configuration.");
+		return [];
+	}
+
+}
+
+
+function setSharing(objectType, object) {
+	var dataSharing = dataShareable(objectType);
+	var conf = currentExport._sharing;
+
+	//User sharing
+	object.userAccesses = setAccesses(conf.userMode, conf.users, dataSharing, object.userAccesses);
+
+	//User group sharing
+	object.userGroupAccesses = setAccesses(conf.groupMode, conf.groups, dataSharing, object.userGroupAccesses);
+
+	//Public access
+	if (conf.hasOwnProperty("publicAccess")) {
+		var accessString = sharingString(conf.publicAccess.metadata);
+		if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
+		else accessString += "------";
+		object.publicAccess = accessString;
+	} 
+}
+
+
+function shareable(metadataType) {
+	for (var type of dhis2schema) {
+		if (type.plural == metadataType) {
+			return type.shareable;
+		}
+	}
+	return false;
+}
+
+
+function dataShareable(metadataType) {
+	for (var type of dhis2schema) {
+		if (type.plural == metadataType) {
+			return type.dataShareable;
+		}
+	}
+	return false;
+}
+
+
+/**
+* Ownership modes:
+* IGNORE: leave user as is
+* REMOVE: remove reference to user
+* OVERWRITE: set user to it 
+*/
+function configureOwnership() {
+	for (var objectType in metaData) {
+		
+		//It not iterable, skip
+		if (!Array.isArray(metaData[objectType])) continue;
+
+		//For each object of objectType
+		for (var obj of metaData[objectType]) {
+
+			//Set ownersip, if applicable
+			if (currentExport.hasOwnProperty("_ownership") && obj.hasOwnProperty("user")) {
+				if (currentExport._ownership.mode == "REMOVE") {
+					delete obj.user;
+				}
+				else if (currentExport._ownership.mode == "OVERWRITE") {
+					obj.user = {
+						"id": currentExport._ownership.ownerId
+					};
+				}
+				//else ignore
 			}
 		}
 	}
+	
 }
 
 
@@ -1226,7 +1363,7 @@ function validateFavoriteDataItems() {
 	}
 	
 	if (issues.length > 0) {	
-		console.log("\nERROR | Favourites not using indicators only:");
+		console.log("\nWARNING | Favourites not using indicators only:");
 		
 		abort = false;
 
