@@ -1095,9 +1095,12 @@ function clearMapZoom() {
 //Clear user groups, leaving only the included "owner" user.
 function clearUserGroups() {
 	for (var i = 0; metaData.userGroups && i < metaData.userGroups.length; i++) {
-		metaData.userGroups[i].users = [
-			{ "id": currentExport._sharing.userId }
-		];
+		metaData.userGroups[i].users = [];
+		if (currentExport.hasOwnProperty("_ownership") && currentExport._ownership.hasOwnProperty("ownerId")) {
+			metaData.userGroups[i].users.push({
+				"id": currentExport._ownership.ownerId
+			});
+		}
 	}
 }
 
@@ -1244,15 +1247,24 @@ function configureOwnership() {
 
 			//Set ownersip, if applicable
 			if (currentExport.hasOwnProperty("_ownership") && obj.hasOwnProperty("user")) {
-				if (currentExport._ownership.mode == "REMOVE") {
+				if (currentExport._ownership.modeOwner == "REMOVE") {
 					delete obj.user;
 				}
-				else if (currentExport._ownership.mode == "OVERWRITE") {
+				else if (currentExport._ownership.modeOwner == "OVERWRITE") {
 					obj.user = {
 						"id": currentExport._ownership.ownerId
 					};
 				}
-				//else ignore
+			}
+			if (currentExport.hasOwnProperty("_ownership") && obj.hasOwnProperty("lastUpdatedBy")) {	
+				if (currentExport._ownership.modeLastUpdated == "REMOVE") {
+					delete obj.lastUpdatedBy;
+				}
+				else if (currentExport._ownership.modeLastUpdated == "OVERWRITE") {
+					obj.lastUpdatedBy = {
+						"id": currentExport._ownership.ownerId
+					};
+				}
 			}
 		}
 	}

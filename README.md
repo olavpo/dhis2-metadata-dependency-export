@@ -74,18 +74,19 @@ The export script relies on a configuration file in .json format. The configurat
 
 **Ownership**
 
-The *ownership* property allows modification of the ownership of metadata in the package (i.e. the `user` property).
+The *ownership* property allows modification of the "user" (owner) and "lastUpdatedBy" properties of metadata in the package.
 ```
 {
-  "mode": "OVERWRITE",
+  "modeOwner": "OVERWRITE",
+  "modeLastUpdated": "REMOVE",
   "ownerId": "vUeLeQMSwhN"
 }
 ```
-`mode` can be one of the following:
+`modeOwner/modeLastUpdated` can be one of the following:
 
-* "IGNORE" - leave ownership as-is
-* "REMOVE" - remove ownership information
-* "OVERWRITE" - set ownership of all data to ownerId specified
+* "IGNORE" - leave as-is.
+* "REMOVE" - remove.
+* "OVERWRITE" - set user/lasteUpdatedBy of all metadata to ownerId specified.
 
 The user specified is included in the export.
 
@@ -123,11 +124,11 @@ The *sharing* property allows modification of the sharing settings of metadata i
 
 `groupMode/userMode` can be one of the following:
 
-* "IGNORE" - leave sharing as-is
-* "REMOVE" - remove sharing information
-* "FILTER" - remove sharing with any groups/users not specified in the configuration
-* "MERGE": - combine existing sharing settings with any groups/users specified in the configuration. If access rights are different, those in the configuration are used
-* "OVERWRITE" - set sharing to that specified in the configuration file
+* "IGNORE" - leave sharing as-is.
+* "REMOVE" - remove sharing information.
+* "FILTER" - remove sharing with any groups/users not specified in the configuration.
+* "MERGE": - combine existing sharing settings with any groups/users specified in the configuration. If access rights are different, those in the configuration are used. Existing groups are not automatically included in the export.
+* "OVERWRITE" - set sharing to that specified in the configuration file.
 
 `groups/users` is an array of objects, where each object refers to a user group/user. It should include the ID, and (except for IGNORE, REMOVE, and FILTER) the metadata and data access to give to the group. Options for metadata and data access are "NONE", "VIEW" and "EDIT". Data access is only applied to relevant objects according to the DHIS2 schema. If a group/user has no metadata OR data access to an object, it is not included.
 
