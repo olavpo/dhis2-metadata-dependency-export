@@ -1810,10 +1810,12 @@ function packageLabel() {
 		break;
 	}
 
+	var version = dhis2version.length > 4 ? dhis2version.substr(0, 4) : dhis2version;
+
 	var identifier = currentExport._code;
 	identifier += "_" + type;
 	identifier += "_V" + currentExport._version;
-	identifier += "_DHIS" + dhis2version;
+	identifier += "_DHIS" + version;
 	
 	return identifier;
 	
@@ -1824,7 +1826,7 @@ function packageLabel() {
 function makeFolder() {
 
 	var path = currentExport._basePath + "/" + currentExport._code;
-
+	var version = dhis2version.length > 4 ? dhis2version.substr(0, 4) : dhis2version;
 
 	var type = "";
 	switch (currentExport._type) {
@@ -1843,7 +1845,7 @@ function makeFolder() {
 	}
 	path += "_" + type;
 	path += "_V" + currentExport._version.substr(0,1); //Only major version
-	path += "_DHIS" + dhis2version;
+	path += "_DHIS" + version;
 	
 	try {
 		fs.mkdirSync(path);
