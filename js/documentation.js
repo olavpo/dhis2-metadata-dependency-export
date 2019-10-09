@@ -1123,6 +1123,10 @@ function categories(dataElement, metaData) {
 	if (comboId == "bjDvmb4bfuf") return [];
 	
 	var ctg = [];
+	
+	//In CUSTOM-type exports, we might have data elements without categorycombos
+	if (!metaData.categoryCombos || metaData.categoryCombos.length == 0) return ctg;
+	
 	for (var cc of metaData.categoryCombos) {
 		if (cc.id === comboId) {
 			for (var cat of cc.categories) {
