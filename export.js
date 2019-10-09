@@ -250,6 +250,7 @@ function processDashboard() {
 
 	//Reset/remove lat/long/zoom on maps
 	clearMapZoom();
+	clearMapViews();
 	
 	//Add prefix to objects to be mapped
 	prefixIndicators();
@@ -429,6 +430,7 @@ function processAggregate() {
 
 	//Reset/remove lat/long/zoom on maps
 	clearMapZoom();
+	clearMapViews();
 		
 	//Make sure the "default defaults" are used
 	setDefaultUid();
@@ -1088,6 +1090,14 @@ function clearMapZoom() {
 			delete metaData.maps[i].longitude;
 			delete metaData.maps[i].zoom;
 		}
+	}
+}
+
+
+//Remove mapViews as top level object if 2.32+ (because of jira DHIS2-7586)
+function clearMapViews() {
+	if (parseInt(dhis2version.split(".")[1]) >= 32) {
+		delete metaData.mapViews;
 	}
 }
 
