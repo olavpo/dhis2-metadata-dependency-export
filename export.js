@@ -372,7 +372,8 @@ function exportAggregate() {
 	var promises = [
 		dependencyExport("dataSet", currentExport.dataSetIds), 
 		dependencyExport("dashboard", currentExport.dashboardIds),
-		limitedDependencyExport(currentExport.exportDataSetIds)
+		limitedDependencyExport(currentExport.exportDataSetIds),
+		customObjects()
 	];
 	Q.all(promises).then(function (results) {
 				
@@ -397,8 +398,7 @@ function exportAggregate() {
 			promises = [
 				indicatorTypes(), 
 				legendSets(), 
-				predictors(),
-				customObjects()
+				predictors()
 			];
 			Q.all(promises).then(function (results) {
 				
@@ -549,7 +549,8 @@ function exportTracker() {
 	//Do initial dependency export
 	var promises = [
 		dependencyExport("program", currentExport.programIds), 
-		dependencyExport("dashboard", currentExport.dashboardIds)
+		dependencyExport("dashboard", currentExport.dashboardIds),
+		customObjects()
 	];
 	Q.all(promises).then(function (results) {
 				
@@ -573,8 +574,7 @@ function exportTracker() {
 			promises = [
 				indicatorTypes(), 
 				legendSets(), 
-				predictors(),
-				customObjects()
+				predictors()
 			];
 			Q.all(promises).then(function (results) {
 				
