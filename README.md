@@ -44,7 +44,8 @@ The export script relies on a configuration file in .json format. The configurat
 
 **Properties related to the package**
 
-| Property        | Description           |
+
+| Property        | Description           | Example  |
 | ------------- |:-------------| -----|
 | _basePath     | Path to a folder in which the packages will be saved |
 | _code     | Code for the package. Used for package identifier, sub-folder name etc. |
