@@ -327,6 +327,11 @@ function saveDashboard() {
 	
 	//Make a folder for storing the files in this package
 	var basePath = makeFolder();	
+	if (!basePath) {
+		exporting = false;
+		nextExport();
+		return;
+	}
 	
 	//Add "ID" - package identifier + date
 	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
@@ -502,7 +507,12 @@ function saveAggregate() {
 	metaData = utils.sortMetaData(metaData);
 	
 	//Make a folder for storing the files in this package
-	var basePath = makeFolder();	
+	var basePath = makeFolder();
+	if (!basePath) {
+		exporting = false;
+		nextExport();
+		return;
+	}	
 	
 	//Add "ID" - package identifier + date
 	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
@@ -679,7 +689,13 @@ function saveTracker() {
 	
 	//Make a folder for storing the files in this package
 	var basePath = makeFolder();	
-	
+	if (!basePath) {
+		exporting = false;
+		nextExport();
+		return;
+	}
+
+
 	//Add "ID" - package identifier + date
 	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
 	
@@ -1193,7 +1209,7 @@ function setAccesses(mode, configAccesses, dataShareable, currentAccesses) {
 		return filtered;
 	}
 	else {
-		console.log("Unknown sharing mode: " + auth + ". Review _sharing property of configuration.");
+		console.log("Unknown sharing mode");
 		return [];
 	}
 
@@ -1834,6 +1850,12 @@ function packageLabel() {
 
 //Make folder
 function makeFolder() {
+
+	if (!fs.existsSync(currentExport._basePath)) {
+		// Do something
+		console.log("Given basePath does not exist, cannot save export: " + currentExport._basePath);
+		return false;
+	}
 
 	var path = currentExport._basePath + "/" + currentExport._code;
 	var version = dhis2version.length > 4 ? dhis2version.substr(0, 4) : dhis2version;
