@@ -127,7 +127,7 @@ function connectNewInstance() {
 
 
 	//Start prompt
-	prompt.start();
+	//prompt.start();
 	
 	var schema = {
 		properties: {
@@ -141,8 +141,8 @@ function connectNewInstance() {
 		}
 	};
 	
-	prompt.get(schema, function (err, result) {		
-		d2.authentication(currentExport.url, result.username, result.password);
+	//prompt.get(schema, function (err, result) {		
+		d2.authentication(currentExport.url, "yury", "Yury123!");
 		
 		d2.get("/api/system/info.json").then(function(result) {
 			console.log("\nConnected to instance: " + result.systemName);
@@ -157,7 +157,7 @@ function connectNewInstance() {
 				startExport();
 			});
 		});
-	});  	
+	//});  	
 }
 
 
@@ -557,11 +557,11 @@ function exportTracker() {
 	console.log("1. Downloading metadata");	
 
 	//Do initial dependency export
-	var promises = [
-		dependencyExport("program", currentExport.programIds), 
-		dependencyExport("dashboard", currentExport.dashboardIds),
-		customObjects()
-	];
+	var promises = [];
+	if( currentExport.programIds ) promises.push( dependencyExport("program", currentExport.programIds) )
+	if( currentExport.dashboardIds ) promises.push( dependencyExport("dashboard", currentExport.dashboardIds) )
+	if( currentExport.customObjects ) promises.push( customObjects() )
+
 	Q.all(promises).then(function (results) {
 				
 		
@@ -594,6 +594,8 @@ function exportTracker() {
 			
 		});
 		
+	}, function(fail){
+		console.log("Fail2:" + fail );
 	});
 				
 }
@@ -745,27 +747,30 @@ function dependencyExport(type, ids) {
 	var deferred = Q.defer();
 
 	var promises = [];
-	for (var id of ids) {
-		
-		switch (type) {
-		case "dataSet": 
-			promises.push(d2.get("/api/dataSets/" + id + 
-					"/metadata.json?attachment=metadataDependency.json"));
-			break;
-		case "dashboard": 
-			promises.push(d2.get("/api/dashboards/" + id + 
-					"/metadata.json?attachment=metadataDependency.json"));
-			break;
-		case "program": 
-			promises.push(d2.get("/api/programs/" + id + 
-					"/metadata.json?attachment=metadataDependency.json"));
-			break;
-		default:
-			console.log("Unknown object for dependency export: " + type);
-			deferred.reject(false);
+	if(ids)
+	{
+			
+		for (var id of ids) {
+			switch (type) {
+			case "dataSet": 
+				promises.push(d2.get("/api/dataSets/" + id + 
+						"/metadata.json?attachment=metadataDependency.json"));
+				break;
+			case "dashboard": 
+				promises.push(d2.get("/api/dashboards/" + id + 
+						"/metadata.json?attachment=metadataDependency.json"));
+				break;
+			case "program": 
+				promises.push(d2.get("/api/programs/" + id + 
+						"/metadata.json?attachment=metadataDependency.json"));
+				break;
+			default:
+				console.log("Unknown object for dependency export: " + type);
+				deferred.reject(false);
+			}
 		}
 	}
-	
+
 	Q.all(promises).then(function(results) {
 		for (var result of results) {
 
@@ -777,6 +782,8 @@ function dependencyExport(type, ids) {
 		}	
 		
 		deferred.resolve(true);
+	}, function(fail){
+		console.log( "Fail:" + fail );
 	});	
 	
 	return deferred.promise;
