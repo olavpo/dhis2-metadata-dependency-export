@@ -127,7 +127,7 @@ function connectNewInstance() {
 
 
 	//Start prompt
-	//prompt.start();
+	prompt.start();
 	
 	var schema = {
 		properties: {
@@ -141,8 +141,8 @@ function connectNewInstance() {
 		}
 	};
 	
-	//prompt.get(schema, function (err, result) {		
-		d2.authentication(currentExport.url, "yury", "Yury123!");
+	prompt.get(schema, function (err, result) {		
+		d2.authentication(currentExport.url, result.username, result.password);
 		
 		d2.get("/api/system/info.json").then(function(result) {
 			console.log("\nConnected to instance: " + result.systemName);
@@ -157,7 +157,7 @@ function connectNewInstance() {
 				startExport();
 			});
 		});
-	//});  	
+	});  	
 }
 
 
