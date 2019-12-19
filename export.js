@@ -3,6 +3,7 @@
 var Q = require("q");
 var prompt = require("prompt");
 var fs = require("fs");
+var args = require("yargs").argv;
 
 var conf;
 var d2 = require("./js/d2.js");
@@ -71,9 +72,13 @@ function readConfig() {
 	}
 	else {
 		var thisConf;
-		conf = { "export": []};
-		for (var i = 2; i < process.argv.length; i++) {
-			var fileName = process.argv[i];
+		conf = { "export": [] };
+
+		var files = args._;
+
+		for(var i = 0; i < files.length; i++)
+		{
+			var fileName = files[i];
 			try {
 				thisConf = JSON.parse(fs.readFileSync(fileName, "utf8"));
 			}
@@ -126,38 +131,47 @@ function connectNewInstance() {
 	console.log("Server: " + currentExport.url);
 
 
-	//Start prompt
-	prompt.start();
-	
-	var schema = {
-		properties: {
-			username: {
-				required: true
-			},
-			password: {
-				hidden: true,
-				required: true
-			}
-		}
-	};
-	
-	prompt.get(schema, function (err, result) {		
-		d2.authentication(currentExport.url, result.username, result.password);
+	if ( args.u && args.p ) {
+		connectAndExport(args.u.trim(),args.p.trim());
+	}
+	else {
+		//Start prompt
+		prompt.start();
 		
-		d2.get("/api/system/info.json").then(function(result) {
-			console.log("\nConnected to instance: " + result.systemName);
+		var schema = {
+			properties: {
+				username: {
+					required: true
+				},
+				password: {
+					hidden: true,
+					required: true
+				}
+			}
+		};
+		
+		prompt.get(schema, function (err, result) {		
+			connectAndExport(result.username, result.password);
+		}); 
+	}
+}
 
-			lastUrl = currentExport.url;
-			dhis2version = result.version;
-			
-			//Get schema for this dhis2 instance
-			d2.get("/api/schemas.json?fields=plural,shareable,dataShareable").then( function (schema) {
-				dhis2schema = schema.schemas;
-				console.log("Got DHIS" + result.version + " schema.");
-				startExport();
-			});
+function connectAndExport(username,password) {
+	d2.authentication(currentExport.url, username, password);
+		
+	d2.get("/api/system/info.json").then(function(result) {
+		console.log("\nConnected to instance: " + result.systemName);
+
+		lastUrl = currentExport.url;
+		dhis2version = result.version;
+		
+		//Get schema for this dhis2 instance
+		d2.get("/api/schemas.json?fields=plural,shareable,dataShareable").then( function (schema) {
+			dhis2schema = schema.schemas;
+			console.log("Got DHIS" + result.version + " schema.");
+			startExport();
 		});
-	});  	
+	});
 }
 
 
