@@ -685,10 +685,15 @@ function processTracker() {
 			}
 		};
 		
-		prompt.get(schema, function (err, result) {	
-			if (result.continue == "yes")  saveTracker();
-			else cancelCurrentExport();
-		});  
+		if(args.ignoreerrors)
+		{
+			saveTracker();
+		} else {
+			prompt.get(schema, function (err, result) {	
+				if (result.continue == "yes")  saveTracker();
+				else cancelCurrentExport();
+			});
+		}
 	}
 }
 
@@ -744,12 +749,17 @@ function object(type, ids) {
 function saveObject(type, ids) {
 	var deferred = Q.defer();
 
+	if(!ids) ids = [];
+
 	//Add any customObjects ids for this type, if any
 	ids = ids.concat(customObjectIds(type));
 	
 	object(type, ids).then(function(result) {
 		addToMetdata(type, result[type]);
 		deferred.resolve(true);			
+	},
+	function(result) {
+		console.log("\nFailed saving objects: " + type + " ids:" + ids);
 	});
 
 	return deferred.promise;

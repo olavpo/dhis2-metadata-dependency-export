@@ -1231,7 +1231,10 @@ function dataSetSectionElement(dataSet, metaData) {
 
 function programSectionFromStageAndElement(stageId, dataElementId, metaData) {
 	for (var pss of metaData.programStageSections) {
-		if (pss.programStage.id == stageId) {
+		if(!pss.programStage) {
+			return null;
+		}
+		else if (pss.programStage.id == stageId) {
 			for (var de of pss.dataElements) {
 				if (de.id == dataElementId) {
 					return pss.name;
