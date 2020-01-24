@@ -1,3 +1,5 @@
+/*jshint esversion: 6 */
+/*jshint node: true */
 "use strict";
 
 var Q = require("q");
@@ -572,9 +574,9 @@ function exportTracker() {
 
 	//Do initial dependency export
 	var promises = [];
-	if( currentExport.programIds ) promises.push( dependencyExport("program", currentExport.programIds) )
-	if( currentExport.dashboardIds ) promises.push( dependencyExport("dashboard", currentExport.dashboardIds) )
-	if( currentExport.customObjects ) promises.push( customObjects() )
+	if( currentExport.programIds ) promises.push( dependencyExport("program", currentExport.programIds) );
+	if( currentExport.dashboardIds ) promises.push( dependencyExport("dashboard", currentExport.dashboardIds) );
+	if( currentExport.customObjects ) promises.push( customObjects() );
 
 	Q.all(promises).then(function (results) {
 				
@@ -1525,12 +1527,15 @@ function validateDataElementReference() {
 
 	//Data elements/data sets from indicator formulas
 	var result;
-	for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
-		result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator, 
-			metaData.indicators[i].denominator, true);
+	if (metaData.indicators) {
+		
+		for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
+			result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator, 
+				metaData.indicators[i].denominator, true);
 			
-		for (var j = 0; j < result.length; j++) {
-			ids[result[j]] = "indicator " + metaData.indicators[i].id;
+			for (var j = 0; j < result.length; j++) {
+				ids[result[j]] = "indicator " + metaData.indicators[i].id;
+			}
 		}
 	}
 	
@@ -1593,26 +1598,30 @@ function validateProgramIndicatorReference() {
 
 	//Program indicators from indicator formulas
 	var result;
-	for (var i = 0; i < metaData.indicators.length; i++) {
-		result = utils.programIndicatorIdsFromIndicatorFormula(metaData.indicators[i].numerator, 
-			metaData.indicators[i].denominator);
+	if (metaData.indicators) {
+		for (var i = 0; i < metaData.indicators.length; i++) {
+			result = utils.programIndicatorIdsFromIndicatorFormula(metaData.indicators[i].numerator, 
+				metaData.indicators[i].denominator);
 			
-		for (var j = 0; j < result.length; j++) {
-			ids[result[j]] = "indicator " + metaData.indicators[i].id;
+			for (var j = 0; j < result.length; j++) {
+				ids[result[j]] = "indicator " + metaData.indicators[i].id;
+			}
 		}
 	}
-	
+
 	//Program indicators from predictor formulas
-	for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
-		result = utils.programIndicatorIdsFromFormula(
-			metaData.predictors[i].generator.expression
-		);
+	if (metaData.predictors) {
+		for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
+			result = utils.programIndicatorIdsFromFormula(
+				metaData.predictors[i].generator.expression
+			);
 			
-		for (var j = 0; j < result.length; j++) {
-			ids[result[j]] = "predictor " + metaData.predictors[i].id;
+			for (var j = 0; j < result.length; j++) {
+				ids[result[j]] = "predictor " + metaData.predictors[i].id;
+			}
 		}
 	}
-	
+
 	var missing = [];
 	for (var id in ids) {
 		if (!objectExists("programIndicators", id)) {
