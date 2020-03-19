@@ -981,7 +981,7 @@ function legendSets() {
 	
 	//LegendSets from applicable object types
 	var types = ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "dataSets", 
-			"dataElements", "indicators"], ids = [];
+			"dataElements", "indicators", "trackedEntityAttributes"], ids = [];
 	for (var k = 0; k < types.length; k++) {
 		for (var i = 0; metaData.hasOwnProperty(types[k]) && i < metaData[types[k]].length; i++) {
 			var obj = metaData[types[k]][i];
