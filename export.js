@@ -887,9 +887,9 @@ function programIndicators() {
 	var deferred = Q.defer();
 	var promises = [];
 	
-	if (!currentExport.programIndicatorGroupIds) currentExport.programIndicatorGroupIds = [];
+	if (!currentExport.exportProgramIndicatorGroupIds) currentExport.exportProgramIndicatorGroupIds = [];
 
-	promises.push(d2.get("/api/programIndicators?filter=programIndicatorGroups.id:in:[" + currentExport.programIndicatorGroupIds.join(",") + "]&fields=:owner&paging=false"));
+	promises.push(d2.get("/api/programIndicators?filter=programIndicatorGroups.id:in:[" + currentExport.exportProgramIndicatorGroupIds.join(",") + "]&fields=:owner&paging=false"));
 	
 	Q.all(promises).then(function (results) {
 		addToMetdata("programIndicators", results[0].programIndicators);
