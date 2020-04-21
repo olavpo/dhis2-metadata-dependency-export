@@ -600,6 +600,39 @@ function makeReferenceList(basePath, metaData) {
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
+	//programIndicator groups
+	if (metaData.programIndicatorGroups && metaData.programIndicatorGroups.length > 0) {
+		referenced["programIndicatorGroups"] = true;
+		toc.push({ "id": "programIndicatorGroups", "name": "Program Indicator Groups" });
+
+		content += utils.htmlHeader("Program Indicator Groups", 2, "programIndicatorGroups");
+		tab = [["Name", "Shortname", "Last updated", "UID"]];
+
+		for (var j = 0; metaData.programIndicatorGroups && j < metaData.programIndicatorGroups.length; j++) {
+			item = metaData.programIndicatorGroups[j];
+			tab.push([item.name, (item.shortName ? item.shortName : ""), item.lastUpdated.substr(0, 10), item.id]);
+		}
+		content += utils.htmlTableFromArray(tab, true);
+
+
+		content += utils.htmlHeader("Program Indicator Groups - Program Indicators", 3);
+		tab = [["Program Indicator Group", "Program Indicator"]];
+
+		var pI;
+		for (var j = 0; metaData.programIndicatorGroups && j < metaData.programIndicatorGroups.length; j++) {
+			item = metaData.programIndicatorGroups[j];
+			for (var k = 0; k < item.programIndicators.length; k++) {
+				pI = item.programIndicators[k];
+				for (var l = 0; l < metaData.programIndicators.length; l++) {
+					if (pI.id === metaData.programIndicators[l].id) {
+						tab.push([item.name, metaData.programIndicators[l].name]);
+					}
+				}
+			}
+		}
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
 	//dashboards and dashboard items
 	if (metaData.dashboards && metaData.dashboards.length > 0) {
 		referenced["dashboards"] = true;
