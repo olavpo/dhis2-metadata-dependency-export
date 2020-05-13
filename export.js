@@ -586,7 +586,6 @@ function exportTracker() {
 		//Get data element and indicator groups from conf files
 		promises = [
 			indicators(), 
-			programIndicators(),
 			categoryOptionGroupSetStructure(),
 			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
@@ -882,22 +881,6 @@ function indicators() {
 	return deferred.promise;
 }
 
-
-function programIndicators() {
-	var deferred = Q.defer();
-	var promises = [];
-	
-	if (!currentExport.exportProgramIndicatorGroupIds) currentExport.exportProgramIndicatorGroupIds = [];
-
-	promises.push(d2.get("/api/programIndicators?filter=programIndicatorGroups.id:in:[" + currentExport.exportProgramIndicatorGroupIds.join(",") + "]&fields=:owner&paging=false"));
-	
-	Q.all(promises).then(function (results) {
-		addToMetdata("programIndicators", results[0].programIndicators);
-		deferred.resolve(true);
-	});
-
-	return deferred.promise;
-}
 
 function indicatorTypes() {	
 	var ids = [], ind = metaData.indicators;
