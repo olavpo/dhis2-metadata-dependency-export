@@ -1715,6 +1715,39 @@ function validateGroupReferences() {
 		}
 	}
 
+	//program indicator group membership
+	grouped = {};
+	for (var i = 0; metaData.programIndicatorGroups && i < metaData.programIndicatorGroups.length; i++) {
+		validMembers = [];
+		group = metaData.programIndicatorGroups[i];
+
+		for (var j = 0; j < group.programIndicators.length; j++) {
+			item = group.programIndicators[j];
+			found = false;
+			for (var k = 0; !found && metaData.programIndicators && k < metaData.programIndicators.length; k++) {
+				if (item.id === metaData.programIndicators[k].id) {
+					found = true;
+				}
+			}
+
+			if (found) {
+				validMembers.push(item);
+				grouped[item.id] = true;
+			}
+		}
+		metaData.programIndicatorGroups[i].programIndicators = validMembers;
+		delete metaData.programIndicatorGroups[i].programIndicatorGroupSet;
+	}
+
+	for (var i = 0; metaData.programIndicators && i < metaData.programIndicators.length; i++) {
+		if (!grouped.hasOwnProperty(metaData.programIndicators[i].id)) {
+			unGrouped.push({
+				"id": metaData.programIndicators[i].id,
+				"name": metaData.programIndicators[i].shortName,
+				"type": "programIndicators"
+			});
+		}
+	}
 
 	//catetory option group membership
 	for (var i = 0; metaData.hasOwnProperty("categoryOptionGroups") && i < metaData.categoryOptionGroups.length; i++) {
