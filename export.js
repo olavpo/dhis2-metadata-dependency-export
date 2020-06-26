@@ -855,7 +855,8 @@ function indicators() {
 	var deferred = Q.defer();
 
 	//Indicators from favorites
-	var types = ["charts", "mapViews", "reportTables"], ids = [];
+	//added visualizations for 2.34
+	var types = ["charts", "mapViews", "reportTables", "visualizations"], ids = [];
 	for (var k = 0; k < types.length; k++) {
 		for (var i = 0; metaData.hasOwnProperty(types[k]) && i < metaData[types[k]].length; i++) {
 			for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
@@ -894,9 +895,10 @@ function indicatorTypes() {
 
 function categoryOptionGroupSetStructure() {
 	var deferred = Q.defer();
+//added visualizations for 2.34
 
 	var ids = [];
-	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			if (item.hasOwnProperty("categoryOptionGroupSetDimensions")) {
@@ -983,6 +985,7 @@ function predictors() {
 function legendSets() {
 	
 	//LegendSets from applicable object types
+	//added visualizations for 2.34
 	var types = ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "dataSets", 
 			"dataElements", "indicators", "trackedEntityAttributes", "visualizations"], ids = [];
 	for (var k = 0; k < types.length; k++) {
@@ -1356,10 +1359,11 @@ function prefixCategoryOptionGroups() {
 /** VALIDATION FUNCTIONS **/
 
 //Check for hardcoded orgunits in favorites (mapViews, reportTables, charts), print warning
+//added visualizations for 2.34
 function validateFavoriteOrgunits() {
 
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			var nameableItem = (type == "mapViews") ? mapFromMapView(item.id) : item;
@@ -1410,8 +1414,9 @@ function validateFavoriteOrgunits() {
 //Verify that only indicators are used in favourites
 function validateFavoriteDataItems() {
 	//Data elements from favorites
+	//added visualizations for 2.34
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			for (var dimItem of item.dataDimensionItems) {
@@ -1459,10 +1464,11 @@ function validateFavoriteDataItems() {
 
 //Check that not unsupported (data element group sets, orgunit group sets, 
 //category) dimensions are used in favourites
+//added visualizations for 2.34
 function validateFavoriteDataDimension() {
 	
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			var nameableItem;
@@ -1965,4 +1971,19 @@ function makeFolder() {
 	}
 	
 	return path;
+}
+
+function promptYesNo() {
+	var answer;
+	var property = {
+		name: 'yesno',
+		message: 'are you sure?',
+		validator: /y[es]*|n[o]?/,
+		warning: 'Must respond yes or no',
+		default: 'no'
+	  };
+	  answer = prompt.get(property, function (err, result) {
+		return result.yesno;
+	  });
+	  return answer;
 }
