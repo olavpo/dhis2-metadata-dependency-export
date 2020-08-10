@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 "use strict";
 
 var fs = require("fs");
@@ -37,12 +38,12 @@ function makeReferenceList(basePath, metaData) {
 	tab.push(["Created", parts[4]]);
 	tab.push(["Identifier", metaData.package]);
 	content += utils.htmlTableFromArrayVertical(tab);
-	
+
 	referenced["package"] = true;
 	toc.push({"id": "package", "name": "Package ID"});
 
 
-	
+
 
 	//tracked entity types
 	if (metaData.trackedEntityTypes && metaData.trackedEntityTypes.length > 0) {
@@ -93,7 +94,7 @@ function makeReferenceList(basePath, metaData) {
 		referenced["sections"] = true;
 		referenced["dataEntryForms"] = true;
 		toc.push({"id": "dataSets", "name": "Data Sets"});
-		
+
 		var ds, sec, de;
 		content += utils.htmlHeader("Data sets", 2, "dataSets");
 		for (var i = 0; i < metaData.dataSets.length; i++) {
@@ -113,16 +114,16 @@ function makeReferenceList(basePath, metaData) {
 			if (dsSec.length > 0) {
 				content += utils.htmlHeader("Sections", 4);
 				tab = [["Section", "Last updated", "UID"]];
-					
+
 				for (var sec of sections(ds, metaData)) {
 					tab.push([sec.name, sec.lastUpdated.substr(0,10), sec.id]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
-				
-				
+
+
 				content += utils.htmlHeader("Data Set Section - Data Element", 4);
 				tab = [["Data Set Section", "Data Element"]];
-				
+
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.section, row.dataElement]);
@@ -132,7 +133,7 @@ function makeReferenceList(basePath, metaData) {
 			else {
 				content += utils.htmlHeader("Data Elements", 4);
 				tab = [["Data Elements"]];
-				
+
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.dataelement]);
@@ -141,7 +142,7 @@ function makeReferenceList(basePath, metaData) {
 			}
 		}
 	}
-	
+
 	//programs: program stages, sections, custom form bool, data elements, uid
 	if (metaData.programs && metaData.programs.length > 0 && metaData.programStages && metaData.programStages.length > 0) {
 		referenced["programs"] = true;
@@ -155,7 +156,7 @@ function makeReferenceList(basePath, metaData) {
 		referenced["programTrackedEntityAttributes"] = true;
 		toc.push({"id": "programs", "name": "Programs"});
 		toc.push({"id": "programRules", "name": "Program Rules"});
-		
+
 		content += utils.htmlHeader("Programs", 2, "programs");
 		for (var h = 0; h < metaData.programs.length; h++) {
 			var prog = metaData.programs[h];
@@ -173,7 +174,7 @@ function makeReferenceList(basePath, metaData) {
 			var ps, sec;
 			content += utils.htmlHeader("Program Stages", 4);
 			tab = [["Program Stage", "Last updated", "UID"]];
-		
+
 			for (var i = 0; i < prog.programStages.length; i++) {
 				ps = metaData.programStages[i];
 				for (var j = 0; j < metaData.programStages.length && !ps; j++) {
@@ -185,7 +186,7 @@ function makeReferenceList(basePath, metaData) {
 
 			content += utils.htmlHeader("Program Stage - Program Stage Section - Data Element", 4);
 			tab = [["Program Stage", "Program Stage Section", "Data Element"]];
-				
+
 			for (var ps of prog.programStages) {
 				ps = getObject(ps.id, metaData);
 				for (var psde of ps.programStageDataElements) {
@@ -198,16 +199,16 @@ function makeReferenceList(basePath, metaData) {
 			if (metaData.programIndicators && metaData.programIndicators.length > 0) {
 				referenced["programIndicators"] = true;
 				toc.push({"id": "programIndicators", "name": "Program Indicators"});
-				
+
 				content += utils.htmlHeader("Program Indicators", 2, "programIndicators");
 				tab = [["Name", "Shortname", "Code", "Description", "Analytics Type", "Last updated", "UID"]];
-				
+
 				var ind, type;
 				for (var i = 0; i < metaData.programIndicators.length; i++) {
 					ind = metaData.programIndicators[i];
 
-					tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : " "), 
-						ind.analyticsType, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
+					tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : " "),
+					ind.analyticsType, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
 			}
@@ -235,14 +236,27 @@ function makeReferenceList(basePath, metaData) {
 		}
 	}
 
-	
+	//constants
+	if (metaData.constants && metaData.constants.length > 0) {
+		referenced["constants"] = true;
+		toc.push({ "id": "constants", "name": "Constants" });
+
+		content += utils.htmlHeader("Constants", 2, "constants");
+		tab = [["Name", "Shortname", "Last updated", "UID"]];
+
+		for (let i = 0; i < metaData.constants.length; i++) {
+			let constant = metaData.constants[i];
+			tab.push([constant.name, constant.shortName, constant.lastUpdated.substr(0, 10), constant.id]);
+		}
+		content += utils.htmlTableFromArray(tab, true);
+	}
 
 	//data elements: name, shortname, description, categorycombo, uid
 	if (metaData.dataElements && metaData.dataElements.length > 0) {
 		referenced["dataElements"] = true;
 		toc.push({"id": "dataElements", "name": "Data Elements"});
-		
-		content += utils.htmlHeader("Data Elements", 2);
+
+		content += utils.htmlHeader("Data Elements", 2, "dataElements");
 		tab = [["Name", "Shortname", "Code", "Description", "Categorycombo", "Last updated", "UID"]];
 
 		for (var i = 0; i < metaData.dataElements.length; i++) {
@@ -256,9 +270,9 @@ function makeReferenceList(basePath, metaData) {
 
 	//data element groups
 	if (metaData.dataElementGroups && metaData.dataElementGroups.length > 0) {
-		referenced["dataElementGroups"] = true;	
-		toc.push({"id": "dataElementGroups", "name": "Data Element Groups"});			
-				
+		referenced["dataElementGroups"] = true;
+		toc.push({"id": "dataElementGroups", "name": "Data Element Groups"});
+
 		content += utils.htmlHeader("Data Element Groups", 2);
 		tab = [["Name", "Shortname", "Last updated", "UID"]];
 
@@ -283,7 +297,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.categoryCombos && metaData.categoryCombos.length > 0) {
 		referenced["categoryCombos"] = true;
 		toc.push({"id": "categoryCombos", "name": "Category Combos"});
-		
+
 		content += utils.htmlHeader("Category Combinations", 2, "categoryCombos");
 		tab = [["Name", "Last updated", "UID", "Categories"]];
 
@@ -307,7 +321,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.categories && metaData.categories.length > 0) {
 		referenced["categories"] = true;
 		toc.push({"id": "categories", "name": "Categories"});
-		
+
 		content += utils.htmlHeader("Data Element Categories", 2, "categories");
 		tab = [["Name", "Last updated", "UID", "Category options"]];
 
@@ -322,7 +336,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 
-			tab.push([dec.name, dec.lastUpdated.substr(0,10), dec.id, (elements.length > 0 ? elements.join("; ") : " ")]); 
+			tab.push([dec.name, dec.lastUpdated.substr(0,10), dec.id, (elements.length > 0 ? elements.join("; ") : " ")]);
 		}
 		content += utils.htmlTableFromArray(tab, true);
 	}
@@ -331,7 +345,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.categoryOptions && metaData.categoryOptions.length > 0) {
 		referenced["categoryOptions"] = true;
 		toc.push({"id": "categoryOptions", "name": "Category Options"});
-		
+
 		content += utils.htmlHeader("Data Element Category Options", 2, "categoryOptions");
 		tab = [["Name", "Last updated", "UID"]];
 
@@ -347,7 +361,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.categoryOptionCombos && metaData.categoryOptionCombos.length > 0) {
 		referenced["categoryOptionCombos"] = true;
 		toc.push({"id": "categoryOptionCombos", "name": "Category Option Combos"});
-		
+
 		content += utils.htmlHeader("Category Option Combination", 2, "categoryOptionCombos");
 		tab = [["Name", "Last updated", "UID"]];
 
@@ -363,7 +377,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.categoryOptionGroupSets && metaData.categoryOptionGroupSets.length > 0) {
 		referenced["categoryOptionGroupSets"] = true;
 		toc.push({"id": "categoryOptionGroupSets", "name": "Category Option Group Sets"});
-		
+
 		content += utils.htmlHeader("Category Option Group Sets", 2, "categoryOptionGroupSets");
 		tab = [["Name", "Last updated", "UID"]];
 
@@ -379,7 +393,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.categoryOptionGroups && metaData.categoryOptionGroups.length > 0) {
 		referenced["categoryOptionGroups"] = true;
 		toc.push({"id": "categoryOptionGroups", "name": "Category Option Groups"});
-		
+
 		content += utils.htmlHeader("Category Option Groups", 2, "categoryOptionGroups");
 		tab = [["Name", "Shortname", "Last updated", "UID"]];
 
@@ -411,7 +425,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.optionSets && metaData.optionSets.length > 0) {
 		referenced["optionSets"] = true;
 		toc.push({"id": "optionSets", "name": "Option Sets"});
-		
+
 		content += utils.htmlHeader("Option Sets", 2, "optionSets");
 		tab = [["Name", "Last updated", "UID", "Options"]];
 
@@ -420,7 +434,7 @@ function makeReferenceList(basePath, metaData) {
 			os = metaData.optionSets[i];
 			elements = [];
 
-			
+
 			for (var j = 0; j < os.options.length; j++) {
 				for (var k = 0; k < metaData.options.length; k++) {
 					if (os.options[j].id == metaData.options[k].id) elements.push(metaData.options[k].name);
@@ -432,7 +446,7 @@ function makeReferenceList(basePath, metaData) {
 				elements.splice(20);
 				elements.push("another " + notShown + " options not shown.");
 			}
-		
+
 			elementText = elements.join("; ");
 			tab.push([os.name, os.lastUpdated.substr(0,10), os.id, elementText]);
 		}
@@ -443,7 +457,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.options && metaData.options.length > 0) {
 		referenced["options"] = true;
 		toc.push({"id": "options", "name": "Options"});
-		
+
 		content += utils.htmlHeader("Options", 2, "options");
 		content += "<table><tr><th>Name</th><th>Code</th><th>Last updated</th><th>UID</th></tr>";
 		var opt;
@@ -458,7 +472,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.validationRules && metaData.validationRules.length > 0) {
 		referenced["validationRules"] = true;
 		toc.push({"id": "validationRules", "name": "Validation Rules"});
-		
+
 		content += utils.htmlHeader("Validation Rules", 2, "validationRules");
 		tab = [["Name", "Instruction", "Left side", "Operator", "Right side", "Last updated", "UID"]];
 
@@ -474,7 +488,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.validationRuleGroups && metaData.validationRuleGroups.length > 0) {
 		referenced["validationRuleGroups"] = true;
 		toc.push({"id": "validationRuleGroups", "name": "Validation Rule Groups"});
-		
+
 		content += utils.htmlHeader("Validation Rule Groups", 2, "validationRuleGroups");
 		tab = [["Name", "Last updated", "UID"]];
 
@@ -501,12 +515,12 @@ function makeReferenceList(basePath, metaData) {
 		}
 		content += utils.htmlTableFromArray(tab, true);
 	}
-	
+
 	//predictors
 	if (metaData.predictors && metaData.predictors.length > 0) {
 		referenced["predictors"] = true;
 		toc.push({"id": "predictors", "name": "Predictors"});
-		
+
 		content += utils.htmlHeader("Predictors", 2, "predictors");
 		tab = [["Name", "Generator", "Sequential samples", "Annual samples", "Target data element", "Last updated", "UID"]];
 
@@ -518,19 +532,19 @@ function makeReferenceList(basePath, metaData) {
 			for (var j = 0; metaData.dataElements && j < metaData.dataElements.length; j++) {
 				if (metaData.dataElements[j].id === pred.output.id) targetName = metaData.dataElements[j].name;
 			}
-			tab.push([pred.name, pred.generator.description, pred.sequentialSampleCount, pred.annualSampleCount, targetName, 
-				pred.lastUpdated.substr(0,10), pred.id]);
+			tab.push([pred.name, pred.generator.description, pred.sequentialSampleCount, pred.annualSampleCount, targetName,
+			pred.lastUpdated.substr(0,10), pred.id]);
 		}
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
-	
-	
+
+
 	//indicators: name, shortname, description, numeratorDescription, denominatorDescription, type, uid
 	if (metaData.indicators && metaData.indicators.length > 0) {
 		referenced["indicators"] = true;
 		toc.push({"id": "indicators", "name": "Indicators"});
-		
+
 		content += utils.htmlHeader("Indicators", 2, "indicators");
 		tab = [["Name", "Shortname", "Code", "Description", "Numerator", "Denominator", "Type", "Last updated", "UID "]];
 
@@ -545,8 +559,8 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 
-			tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""), 
-				ind.numeratorDescription, ind.denominatorDescription, type, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
+			tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""),
+			ind.numeratorDescription, ind.denominatorDescription, type, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
 		}
 		content += utils.htmlTableFromArray(tab, true);
 	}
@@ -555,7 +569,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.indicatorGroups && metaData.indicatorGroups.length > 0) {
 		referenced["indicatorGroups"] = true;
 		toc.push({"id": "indicatorGroups", "name": "Indicator Groups"});
-		
+
 		content += utils.htmlHeader("Indicator Groups", 2, "indicatorGroups");
 		tab = [["Name", "Shortname", "Last updated", "UID"]];
 
@@ -588,7 +602,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.indicatorTypes && metaData.indicatorTypes.length > 0) {
 		referenced["indicatorTypes"] = true;
 		toc.push({"id": "indicatorTypes", "name": "Indicator Types"});
-		
+
 		content += utils.htmlHeader("Indicator types", 2, "indicatorTypes");
 		tab = [["Name", "Factor", "Last updated", "UID"]];
 
@@ -638,7 +652,7 @@ function makeReferenceList(basePath, metaData) {
 		referenced["dashboards"] = true;
 		referenced["dashboardItems"] = true;
 		toc.push({"id": "dashboards", "name": "Dashboards"});
-	
+
 		var db, dbi;
 		content += utils.htmlHeader("Dashboards", 2, "dashboards");
 		for (var i = 0; i < metaData.dashboards.length; i++) {
@@ -654,7 +668,7 @@ function makeReferenceList(basePath, metaData) {
 
 			content += utils.htmlHeader("Dashboard items", 4);
 			tab = [["Content/item type", "Content name", "Content UID", "Last updated", "Dashboard Item UID"]];
-					
+
 			for (var j = 0; j < db.dashboardItems.length; j++) {
 
 				//versions >= 2.29
@@ -733,7 +747,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 				tab.push([type, name, id, dbi.lastUpdated.substr(0,10), dbi.id]);
 			}
-			content += utils.htmlTableFromArray(tab, true);	
+			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
 
@@ -741,7 +755,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.charts && metaData.charts.length > 0) {
 		referenced["charts"] = true;
 		toc.push({"id": "charts", "name": "Charts"});
-		
+
 		content += utils.htmlHeader("Charts", 2, "charts");
 		tab = [["Name", "Description", "Last updated", "UID"]];
 
@@ -756,7 +770,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.reportTables && metaData.reportTables.length > 0) {
 		referenced["reportTables"] = true;
 		toc.push({"id": "reportTables", "name": "Report Tables"});
-		
+
 		content += utils.htmlHeader("Report tables", 2, "reportTables");
 		tab = [["Name", "Description", "Last updated", "UID"]];
 
@@ -772,7 +786,7 @@ function makeReferenceList(basePath, metaData) {
 		referenced["maps"] = true;
 		referenced["mapViews"] = true;
 		toc.push({"id": "maps", "name": "Maps"});
-		
+
 		content += utils.htmlHeader("Maps", 2, "maps");
 		tab = [["Name", "Description", "Last updated", "UID"]];
 
@@ -806,7 +820,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.eventReports && metaData.eventReports.length > 0) {
 		referenced["eventReports"] = true;
 		toc.push({"id": "eventReports", "name": "Event Reports"});
-		
+
 		content += utils.htmlHeader("Event reports", 2, "eventReports");
 		tab = [["Name", "Description", "Last updated", "UID"]];
 
@@ -822,7 +836,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.eventCharts && metaData.eventCharts.length > 0) {
 		referenced["eventCharts"] = true;
 		toc.push({"id": "eventCharts", "name": "Event Charts"});
-		
+
 		content += utils.htmlHeader("Event charts", 2, "eventCharts");
 		tab = [["Name", "Description", "Last updated", "UID"]];
 
@@ -838,7 +852,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.reports && metaData.reports.length > 0) {
 		referenced["reports"] = true;
 		toc.push({"id": "reports", "name": "Standard Reports"});
-		
+
 		content += utils.htmlHeader("Standard reports", 2, "reports");
 		tab = [["Name", "Last updated", "UID"]];
 
@@ -853,7 +867,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.documents && metaData.documents.length > 0) {
 		referenced["documents"] = true;
 		toc.push({"id": "documents", "name": "Resources"});
-		
+
 		content += utils.htmlHeader("Resources", 2, "resources");
 		tab = [["Name", "Last updated", "UID"]];
 
@@ -868,7 +882,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.sqlViews && metaData.sqlViews.length > 0) {
 		referenced["sqlViews"] = true;
 		toc.push({"id": "sqlViews", "name": "SQL views"});
-		
+
 		content += utils.htmlHeader("SQL views", 2, "sqlViews");
 		tab = [["Name", "Last updated", "UID"]];
 
@@ -883,7 +897,7 @@ function makeReferenceList(basePath, metaData) {
 	if (metaData.legendSets && metaData.legendSets.length > 0) {
 		referenced["legendSets"] = true;
 		toc.push({"id": "legendSets", "name": "Legend Sets"});
-		
+
 		content += utils.htmlHeader("Legend Sets", 2, "legendSets");
 
 		var legendSet;
@@ -909,14 +923,29 @@ function makeReferenceList(basePath, metaData) {
 		}
 	}
 
+	//tracked entity instance filters
+	if (metaData.trackedEntityInstanceFilters && metaData.trackedEntityInstanceFilters.length > 0) {
+		referenced["trackedEntityInstanceFilters"] = true;
+		toc.push({ "id": "trackedEntityInstanceFilters", "name": "Tracked Entity Instance Filters"});
+
+		content += utils.htmlHeader("Tracked Entity Instance Filters", 2, "trackedEntityInstanceFilters");
+		tab = [[ "Name", "Last updated", "UID"]];
+
+		for (let i = 0; i < metaData.trackedEntityInstanceFilters.length; i++) {
+			let teif = metaData.trackedEntityInstanceFilters[i];
+			tab.push([teif.name, teif.lastUpdated.substr(0, 10), teif.id]);
+		}
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
 	//user groups
 	if (metaData.userGroups && metaData.userGroups.length > 0) {
 		referenced["userGroups"] = true;
 		toc.push({"id": "userGroups", "name": "User Groups"});
-		
+
 		content += utils.htmlHeader("User Groups", 2, "userGroups");
 		tab = [["Name", "Last updated", "UID"]];
-		
+
 		for (var i = 0; i < metaData.userGroups.length; i++) {
 			var item = metaData.userGroups[i];
 			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
@@ -927,7 +956,7 @@ function makeReferenceList(basePath, metaData) {
 	//users
 	if (metaData.users && metaData.users.length > 0) {
 		referenced["users"] = true;
-		
+
 		content += utils.htmlHeader("Users", 2);
 		tab = [["Username", "Last updated", "UID"]];
 
@@ -1040,12 +1069,12 @@ function makeAvailabilityChecklist(basePath, metaData) {
 	//data elements
 	if (metaData.dataSets && metaData.dataElements && metaData.dataElements.length > 0) {
 		content += utils.htmlHeader("Data elements", 2);
-		
+
 		for (var ds of metaData.dataSets) {
 			content += utils.htmlHeader(ds.name, 3);
 			content += dataElementAvailabilityTable(dataElements(ds, metaData), metaData);
 		}
-		
+
 		var unGrouped = standaloneDataElements(metaData);
 		if (unGrouped.length > 0) {
 			content += utils.htmlHeader("Other", 3);
@@ -1079,7 +1108,7 @@ function makeAvailabilityChecklist(basePath, metaData) {
 
 function dataElementAvailabilityTable(dataElems, metaData) {
 	var content = "<table width=\"100%\"><col width=\"15%\"><col width=\"70%\"><col width=\"15%\" align=\"center\">" +
-					"<tr><th>Code</th><th >Name</th><th>Available</th></tr>";	
+		"<tr><th>Code</th><th >Name</th><th>Available</th></tr>";
 	for (var de of dataElems) {
 		var cats = categories(de, metaData);
 
@@ -1092,21 +1121,21 @@ function dataElementAvailabilityTable(dataElems, metaData) {
 			}
 		}
 
-		content += "<tr><td rowspan=" + (rows > 2 ? rows : 1) + ">" + (de.code ? de.code : "N/A") + 
+		content += "<tr><td rowspan=" + (rows > 2 ? rows : 1) + ">" + (de.code ? de.code : "N/A") +
 			"</td><td align=\"left\">" + de.name + "</td><td align=\"center\">▢</td></tr>";
-	
+
 		for (var c of cats) {
 			var opts = options(c, metaData);
-			content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\"><em>" + 
-					c.name + "</em></p></td><td align=\"center\">▢</td></tr>";
+			content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\"><em>" +
+				c.name + "</em></p></td><td align=\"center\">▢</td></tr>";
 			for (var opt of opts) {
-				content += "<tr><td><p style=\"margin: 0px; margin-left: 48px;\"><em>" + 
+				content += "<tr><td><p style=\"margin: 0px; margin-left: 48px;\"><em>" +
 					opt.name + "</em></p></td><td align=\"center\">▢</td></tr>";
 			}
 		}
 		if (cats.length > 0) {
-			content += "<tr><td><p style=\"margin: 0px; margin-left: 24px; margin-bottom: 48px\"><em>" + 
-					"Other disaggregations, specify:</em></p></td><td align=\"center\">▢</td></tr>";
+			content += "<tr><td><p style=\"margin: 0px; margin-left: 24px; margin-bottom: 48px\"><em>" +
+				"Other disaggregations, specify:</em></p></td><td align=\"center\">▢</td></tr>";
 		}
 	}
 
@@ -1117,27 +1146,27 @@ function dataElementAvailabilityTable(dataElems, metaData) {
 
 function indicatorAvailabilityTable(metaData) {
 	var content = "<table width=\"100%\"><col width=\"15%\"><col width=\"70%\"><col width=\"15%\">" +
-				"<tr><th>Code</th><th >Name</th><th>Available</th></tr>";
+		"<tr><th>Code</th><th >Name</th><th>Available</th></tr>";
 
 	for (var ind of metaData.indicators) {
-		content += "<tr><td rowspan=3>" + (ind.code ? ind.code : "N/A") + 
+		content += "<tr><td rowspan=3>" + (ind.code ? ind.code : "N/A") +
 			"</td><td align=\"left\">" + ind.name + "</td><td align=\"center\">▢</td></tr>";
-		content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\">Numerator: " 
-				+ ind.numeratorDescription + "</td><td align=\"center\">▢</td></tr>";
-		content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\">Denominator: " 
-				+ ind.denominatorDescription + "</td><td align=\"center\">▢</td></tr>";
+		content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\">Numerator: "
+			+ ind.numeratorDescription + "</td><td align=\"center\">▢</td></tr>";
+		content += "<tr><td><p style=\"margin: 0px; margin-left: 24px;\">Denominator: "
+			+ ind.denominatorDescription + "</td><td align=\"center\">▢</td></tr>";
 	}
-	
+
 	content += "</table>";
-	
+
 	return content;
 
 }
 
 function options(category, metaData) {
-	
+
 	if (category.id == "GLevLNI9wkl") return [];
-	
+
 	var opts = [];
 	for (var catCo of category.categoryOptions) {
 		for (var co of metaData.categoryOptions) {
@@ -1149,27 +1178,27 @@ function options(category, metaData) {
 
 
 function categories(dataElement, metaData) {
-	
-	
+
+
 	//combo => catIds => cats
 	var comboId = dataElement.categoryCombo.id;
 	if (comboId == "bjDvmb4bfuf") return [];
-	
+
 	var ctg = [];
-	
+
 	//In CUSTOM-type exports, we might have data elements without categorycombos
 	if (!metaData.categoryCombos || metaData.categoryCombos.length == 0) return ctg;
-	
+
 	for (var cc of metaData.categoryCombos) {
 		if (cc.id === comboId) {
 			for (var cat of cc.categories) {
 				for (var ct of metaData.categories) {
-					if (cat.id == ct.id) ctg.push(ct);	
+					if (cat.id == ct.id) ctg.push(ct);
 				}
 			}
 		}
 	}
-	
+
 	return ctg;
 }
 
@@ -1180,7 +1209,7 @@ function dataElements(dataSet, metaData) {
 			if (dsde.dataElement.id == de.id) des.push(de);
 		}
 	}
-	
+
 	return des;
 }
 
@@ -1188,7 +1217,7 @@ function dataElement(id, metaData) {
 	for (var de of metaData.dataElements) {
 		if (id == de.id) return de;
 	}
-	
+
 	return false;
 }
 
@@ -1197,16 +1226,16 @@ function sections(parent, metaData) {
 	var ses = [];
 	if (metaData.hasOwnProperty("sections")) {
 		for (var se of metaData.sections) {
-			if (se.dataSet.id == parent.id) ses.push(se);		
+			if (se.dataSet.id == parent.id) ses.push(se);
 		}
 	}
 
 	if (metaData.hasOwnProperty("programStageSections")) {
 		for (var se of metaData.programStageSections) {
-			if (se.programStage.id == parent.id) ses.push(se);		
+			if (se.programStage.id == parent.id) ses.push(se);
 		}
 	}
-	
+
 	//Sort by sort order
 	ses = utils.arraySortByProperty(ses, "sortOrder", true, true);
 	return ses;
@@ -1217,16 +1246,16 @@ function standaloneDataElements(metaData) {
 	var des = [];
 	for (var de of metaData.dataElements) {
 		var grouped = false;
-		
+
 		for (var ds of metaData.dataSets) {
 			for (var dsde of ds.dataSetElements) {
 				if (de.id == dsde.dataElement.id) grouped = true;
 			}
 		}
-		
+
 		if (!grouped) des.push(de);
 	}
-	
+
 	return des;
 }
 
@@ -1238,26 +1267,26 @@ function dataSetSectionElement(dataSet, metaData) {
 		deIndex[dse.dataElement.id] = true;
 	}
 
-	var allSections = sections(dataSet, metaData);	
+	var allSections = sections(dataSet, metaData);
 	var structure = [];
-	
+
 	for (var sec of allSections) {
 		for (var de of sec.dataElements) {
 			structure.push({
-				"section": sec.name, 
+				"section": sec.name,
 				"dataElement": dataElement(de.id, metaData).name
 			});
 			delete deIndex[de.id];
 		}
 	}
-	
+
 	for (var de in deIndex) {
 		structure.push({
-			"section": "None", 
+			"section": "None",
 			"dataElement": dataElement(de, metaData).name
 		});
 	}
-	
+
 	return structure;
 }
 
@@ -1272,7 +1301,7 @@ function programSectionFromStageAndElement(stageId, dataElementId, metaData) {
 				if (de.id == dataElementId) {
 					return pss.name;
 				}
-			}			
+			}
 		}
 	}
 	return "";
