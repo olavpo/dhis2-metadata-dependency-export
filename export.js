@@ -655,7 +655,7 @@ function processTracker() {
 	clearOrgunitAssignment();
 
 	//Remove duplicate programStageDataElements
-	//removeDuplicateObjects();
+	removeDuplicateObjects();
 
 	//Verify that all data elements referred in indicators, validation rules,
 	//predictors are included
@@ -725,6 +725,13 @@ function processTracker() {
 function saveTracker() {
 
 	console.log("\n3. Saving metadata and documentation");
+
+	/*
+	// Debug: dump unsorted metaData
+	if (debug) {
+		fs.writeFileSync('.\\debug_preSort.json', JSON.stringify(metaData));
+	}
+	*/
 
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);

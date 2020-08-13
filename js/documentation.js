@@ -229,7 +229,7 @@ function makeReferenceList(basePath, metaData) {
 			content += utils.htmlHeader("Program Tracked Entity Attributes", 4);
 			tab = [["Tracked Entity Attribute Name", "Last updated", "Program Tracked Entity Attribute UID", "Tracked Entity Attribute UID"]];
 			for (var ptea of prog.programTrackedEntityAttributes) {
-				ptea = getObject(ptea.id, metaData);
+				ptea = getObject(ptea.id, prog);
 				tab.push([getName(ptea.trackedEntityAttribute.id, metaData), ptea.lastUpdated.substr(0,10), ptea.id, ptea.trackedEntityAttribute.id]);
 			}
 			content += utils.htmlTableFromArray(tab, true);
