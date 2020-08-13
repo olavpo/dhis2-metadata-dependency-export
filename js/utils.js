@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 "use strict";
 
 var fs = require("fs");
@@ -48,8 +49,39 @@ function saveFileJson(fileName, jsonContent) {
 function sortMetaData(metaData) {
 	var objects = arrayFromKeys(metaData);
 	for (var i = 0; i < objects.length; i++) {
-		if (Array.isArray(metaData[objects[i]])) {
-			metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+		if (Array.isArray(metaData[objects[i]]) && (objects[i] != "programTrackedEntityAttributes")) {
+			switch (objects[i]) {
+				case "dataElementGroups":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].dataElements = arraySortByProperty(metaData[objects[i]][j].dataElements, "id", false, false);
+					}
+					break;
+
+				case "indicatorGroups":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].indicators = arraySortByProperty(metaData[objects[i]][j].indicators, "id", false, false);
+					}
+					break;
+
+				case "programIndicatorGroups":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].programIndicators = arraySortByProperty(metaData[objects[i]][j].programIndicators, "id", false, false);
+					}
+					break;
+
+				case "programRules":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].programRuleActions = arraySortByProperty(metaData[objects[i]][j].programRuleActions, "id", false, false);
+					}
+					break;
+
+				default:
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+			}
 		}
 	}
 	
@@ -61,7 +93,7 @@ function sortMetaDataArray(toSort) {
 
 	if (toSort.length == 0) return [];
 
-	//If possible use name - assume that sort order is not important for "nameable" objects
+	//Look for name - assume that sort order is not important for "nameable" objects
 	if (toSort[0].hasOwnProperty("name")) {
 		
 		//first sort by ID, then name, where possible - makes sort reliable when there are duplicates in the names (e.g. catOptCombos)
@@ -85,10 +117,15 @@ function sortMetaDataArray(toSort) {
 		toSort = arraySortByProperty(toSort, "startValue", true, false);
 	}
 
+	//analyticsPeriodBoundaries in programIndicators
+	if (toSort[0].hasOwnProperty("analyticsPeriodBoundaryType")) {
+		toSort = arraySortByProperty(toSort, "id", false, false);
+	}
+
 	//Check if the objects in the array contains other arrays that should be sorted
 	for (var i = 0; i < toSort.length; i++) {
 		for (var prop in toSort[i]) {
-			if (Array.isArray(toSort[i][prop])) {
+			if (Array.isArray(toSort[i][prop]) && (prop != "programTrackedEntityAttributes") && (prop != "programStageDataElements") ) {
 				toSort[i][prop] = sortMetaDataArray(toSort[i][prop]);
 			}
 		}
