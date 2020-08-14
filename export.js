@@ -641,6 +641,10 @@ function processTracker() {
 		fs.writeFileSync('.\\debug.json', JSON.stringify(metaData));
 	}
 
+	//Reset/remove lat/long/zoom on maps
+	clearMapZoom();
+	clearMapViews();
+	
 	//Configure sharing and metadata ownership
 	configureSharing();
 	configureOwnership();
