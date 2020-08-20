@@ -72,6 +72,15 @@ function sortMetaData(metaData) {
 					}
 					break;
 
+				case "programRuleActions":
+					metaData[objects[i]] = arraySortByProperty(metaData[objects[i]], "id", false, false);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						if (metaData[objects[i]][j].hasOwnProperty("evaluationEnvironments")) {
+							metaData[objects[i]][j].evaluationEnvironments = arraySort(metaData[objects[i]][j].evaluationEnvironments, false);
+						}
+					}
+					break;
+
 				case "programRules":
 					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
 					for (let j = 0; j < metaData[objects[i]].length; j++) {
@@ -108,8 +117,8 @@ function sortMetaDataArray(toSort) {
 	//Some special cases:
 	//translations
 	if (toSort[0].hasOwnProperty("value") && toSort[0].hasOwnProperty("locale") && toSort[0].hasOwnProperty("property")) {
-		toSort = arraySortByProperty(toSort, "property", false, false);
 		toSort = arraySortByProperty(toSort, "locale", false, false);
+		toSort = arraySortByProperty(toSort, "property", false, false);
 	}
 
 	//legends
@@ -346,6 +355,13 @@ function arraySortByProperty(array, property, numeric, reverse) {
 
 }
 
+function arraySort(array, reverse) {
+
+	return array.sort(function(a, b) {
+        if (reverse) return a > b ? -1 : 1;
+        else return a < b ? -1 : 1;
+	});
+}
 
 
 function arrayFromKeys(obj) {
