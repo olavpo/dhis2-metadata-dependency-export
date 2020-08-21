@@ -2003,7 +2003,7 @@ function removeDuplicateObjects() {
 	if (metaData.programStageDataElements.length > 0) {
 		delete metaData.programStageDataElements;
 	}
-	if (metaData.programTrackedEntityAttributes.length > 0) {
+	if (metaData.hasOwnProperty("programTrackedEntityAttributes") && metaData.programTrackedEntityAttributes.length > 0) {
 		delete metaData.programTrackedEntityAttributes;
 	}
 }
