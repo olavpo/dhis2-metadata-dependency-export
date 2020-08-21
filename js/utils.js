@@ -117,8 +117,7 @@ function sortMetaDataArray(toSort) {
 	//Some special cases:
 	//translations
 	if (toSort[0].hasOwnProperty("value") && toSort[0].hasOwnProperty("locale") && toSort[0].hasOwnProperty("property")) {
-		toSort = arraySortByProperty(toSort, "locale", false, false);
-		toSort = arraySortByProperty(toSort, "property", false, false);
+		toSort = sortTranslation(toSort);
 	}
 
 	//legends
@@ -354,6 +353,30 @@ function arraySortByProperty(array, property, numeric, reverse) {
 	});
 
 }
+
+function sortTranslation(array) {
+
+	return array.sort(function(a, b) {
+		var res;
+		if (a.locale == b.locale) {
+			if (a.property < b.property) {
+				return -1;
+			}
+			if (a.property > b.property) {
+				return 1;
+			}
+			return 0;
+
+		}
+		if (a.locale < b.locale) {
+			return -1;
+		}
+		if (a.locale > b.locale) {
+			return 1;
+		}
+	});
+}
+
 
 function arraySort(array, reverse) {
 
