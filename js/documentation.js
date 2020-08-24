@@ -22,6 +22,9 @@ function makeReferenceList(basePath, metaData) {
 		referenced[object] = false;
 	}
 
+	var wrkBook = utils.createWorkbook();
+	
+
 	var toc = [], tab = [];
 
 	var content = utils.htmlHead("Metadata reference");
@@ -41,7 +44,8 @@ function makeReferenceList(basePath, metaData) {
 
 	referenced["package"] = true;
 	toc.push({"id": "package", "name": "Package ID"});
-
+	
+	utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "Package info");
 
 
 
@@ -57,8 +61,9 @@ function makeReferenceList(basePath, metaData) {
 			tet = metaData.trackedEntityTypes[i];
 			tab.push([tet.name, tet.lastUpdated.substr(0,10), tet.id]);
 		}
-		content += utils.htmlTableFromArray(tab, true);
 
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "trackedEntityTypes");
+		content += utils.htmlTableFromArray(tab, true);
 
 		//tracked entity type attributes
 		content += utils.htmlHeader("Tracked Entity Type - Tracked Entity Type Attributes", 3);
@@ -69,6 +74,7 @@ function makeReferenceList(basePath, metaData) {
 				tab.push([tet.name, getName(tea.id, metaData)]);
 			}
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "trackedEntityTypeAttributes");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -82,8 +88,9 @@ function makeReferenceList(basePath, metaData) {
 
 		var tea;
 		for (var tea of metaData.trackedEntityAttributes) {
-			tab.push([tea.name, (tea.code ? tea.code : ""), tea.description, tea.lastUpdated.substr(0,10), tea.id]);
+			tab.push([tea.name, (tea.code ? tea.code : ""), (tea.description ? tea.description : ""), tea.lastUpdated.substr(0,10), tea.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "trackedEntityAttributes");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -109,6 +116,8 @@ function makeReferenceList(basePath, metaData) {
 			tab.push(["Sections:", (dsSec.length > 0 ? "Yes" : "No")]);
 			tab.push(["Last updated", ds.lastUpdated.substr(0,10)]);
 			tab.push(["UID:", ds.id]);
+
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataSets");
 			content += utils.htmlTableFromArrayVertical(tab);
 
 			if (dsSec.length > 0) {
@@ -118,6 +127,7 @@ function makeReferenceList(basePath, metaData) {
 				for (var sec of sections(ds, metaData)) {
 					tab.push([sec.name, sec.lastUpdated.substr(0,10), sec.id]);
 				}
+				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "sections");
 				content += utils.htmlTableFromArray(tab, true);
 
 
@@ -128,6 +138,7 @@ function makeReferenceList(basePath, metaData) {
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.section, row.dataElement]);
 				}
+				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataSetSections");
 				content += utils.htmlTableFromArray(tab, true);
 			}
 			else {
@@ -138,6 +149,7 @@ function makeReferenceList(basePath, metaData) {
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.dataelement]);
 				}
+				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataElements");
 				content += utils.htmlTableFromArray(tab, true);
 			}
 		}
@@ -167,6 +179,8 @@ function makeReferenceList(basePath, metaData) {
 			if (prog.programType != "WITHOUT_REGISTRATION") tab.push(["Tracked Entity Type:", getName(prog.trackedEntityType.id, metaData)]);
 			tab.push(["Last updated:", prog.lastUpdated.substr(0,10)]);
 			tab.push(["UID:", prog.id]);
+
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programs" + h);
 			content += utils.htmlTableFromArrayVertical(tab);
 
 
@@ -182,6 +196,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 				tab.push([ps.name, ps.lastUpdated.substr(0,10), ps.id]);
 			}
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programStages" + h);
 			content += utils.htmlTableFromArray(tab, true);
 
 			content += utils.htmlHeader("Program Stage - Program Stage Section - Data Element", 4);
@@ -193,6 +208,7 @@ function makeReferenceList(basePath, metaData) {
 					tab.push([ps.name, programSectionFromStageAndElement(ps.id, psde.dataElement.id, metaData), getName(psde.dataElement.id, metaData)]);
 				}
 			}
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programStageSections" + h);
 			content += utils.htmlTableFromArray(tab, true);
 
 			//Program indicators
@@ -210,6 +226,7 @@ function makeReferenceList(basePath, metaData) {
 					tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : " "),
 					ind.analyticsType, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
 				}
+				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programIndicators" + h);
 				content += utils.htmlTableFromArray(tab, true);
 			}
 
@@ -220,8 +237,9 @@ function makeReferenceList(basePath, metaData) {
 			tab = [["Program rule", "Description", "Last updated", "UID"]];
 
 			for (var pr of programRules) {
-				tab.push([pr.name, pr.description, pr.lastUpdated.substr(0,10), pr.id]);
+				tab.push([pr.name, (pr.description ? pr.description : ""), pr.lastUpdated.substr(0,10), pr.id]);
 			}
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programRules" + h);
 			content += utils.htmlTableFromArray(tab, true);
 
 
@@ -232,6 +250,7 @@ function makeReferenceList(basePath, metaData) {
 				ptea = getObject(ptea.id, prog);
 				tab.push([getName(ptea.trackedEntityAttribute.id, metaData), ptea.lastUpdated.substr(0,10), ptea.id, ptea.trackedEntityAttribute.id]);
 			}
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programTrackedEntityAttributes" + h);
 			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
@@ -248,6 +267,7 @@ function makeReferenceList(basePath, metaData) {
 			let constant = metaData.constants[i];
 			tab.push([constant.name, constant.shortName, constant.lastUpdated.substr(0, 10), constant.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "constants");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -264,6 +284,7 @@ function makeReferenceList(basePath, metaData) {
 			var comboName = getName(de.categoryCombo.id, metaData);
 			tab.push([de.name, de.shortName, (de.code ? de.code : ""), (de.description ? de.description : ""), comboName, de.lastUpdated.substr(0,10), de.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataElements");
 		content += utils.htmlTableFromArray(tab, true);
 
 	}
@@ -290,6 +311,7 @@ function makeReferenceList(basePath, metaData) {
 				tab.push([item.name, getName(de.id, metaData)]);
 			}
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataElementGroups");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -314,6 +336,7 @@ function makeReferenceList(basePath, metaData) {
 
 			tab.push([cc.name, cc.lastUpdated.substr(0,10), cc.id, (elements.length > 0 ? elements.join("; ") : " ")]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryCombos");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -338,6 +361,7 @@ function makeReferenceList(basePath, metaData) {
 
 			tab.push([dec.name, dec.lastUpdated.substr(0,10), dec.id, (elements.length > 0 ? elements.join("; ") : " ")]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categories");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -354,6 +378,7 @@ function makeReferenceList(basePath, metaData) {
 			co = metaData.categoryOptions[i];
 			tab.push([co.name, co.lastUpdated.substr(0,10), co.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryOptions");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -370,6 +395,7 @@ function makeReferenceList(basePath, metaData) {
 			coc = metaData.categoryOptionCombos[i];
 			tab.push([coc.name, coc.lastUpdated.substr(0,10), coc.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryOptionCombos");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -386,6 +412,7 @@ function makeReferenceList(basePath, metaData) {
 			cogs = metaData.categoryOptionGroupSets[i];
 			tab.push([cogs.name, cogs.lastUpdated.substr(0,10), cogs.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryOptionGroupSets");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -401,6 +428,7 @@ function makeReferenceList(basePath, metaData) {
 			item = metaData.categoryOptionGroups[j];
 			tab.push([item.name, item.shortName, item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryOptionGroups");
 		content += utils.htmlTableFromArray(tab, true);
 
 		content += utils.htmlHeader("Category Option Group Sets - Category Option Groups", 3);
@@ -418,6 +446,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryOptionGroupSets");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -450,10 +479,11 @@ function makeReferenceList(basePath, metaData) {
 			elementText = elements.join("; ");
 			tab.push([os.name, os.lastUpdated.substr(0,10), os.id, elementText]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "optionSets");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
-	//options
+	//options TODO add to excelref
 	if (metaData.options && metaData.options.length > 0) {
 		referenced["options"] = true;
 		toc.push({"id": "options", "name": "Options"});
@@ -481,6 +511,7 @@ function makeReferenceList(basePath, metaData) {
 
 			tab.push([vr.name, vr.instruction, vr.leftSide.description, vr.operator, vr.rightSide.description, vr.lastUpdated.substr(0,10), vr.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "validationRules");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -496,6 +527,7 @@ function makeReferenceList(basePath, metaData) {
 			item = metaData.validationRuleGroups[j];
 			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "validationRuleGroups");
 		content += utils.htmlTableFromArray(tab, true);
 
 		content += utils.htmlHeader("Validation Rule Groups - Validation Rules", 3);
@@ -513,6 +545,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "validationRules by group");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -535,6 +568,7 @@ function makeReferenceList(basePath, metaData) {
 			tab.push([pred.name, pred.generator.description, pred.sequentialSampleCount, pred.annualSampleCount, targetName,
 			pred.lastUpdated.substr(0,10), pred.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "predictors");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -562,6 +596,7 @@ function makeReferenceList(basePath, metaData) {
 			tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""),
 			ind.numeratorDescription, ind.denominatorDescription, type, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), ind.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "indicators");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -577,6 +612,7 @@ function makeReferenceList(basePath, metaData) {
 			item = metaData.indicatorGroups[j];
 			tab.push([item.name, (item.shortName ? item.shortName : ""), item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "indicatorGroups");
 		content += utils.htmlTableFromArray(tab, true);
 
 
@@ -595,6 +631,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "indicators by group");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -611,6 +648,7 @@ function makeReferenceList(basePath, metaData) {
 			it = metaData.indicatorTypes[i];
 			tab.push([it.name, it.factor, (it.lastUpdated ? it.lastUpdated.substr(0,10) : ""), it.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "indicatorTypes");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -626,6 +664,7 @@ function makeReferenceList(basePath, metaData) {
 			item = metaData.programIndicatorGroups[j];
 			tab.push([item.name, (item.shortName ? item.shortName : ""), item.lastUpdated.substr(0, 10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programIndicatorGroups");
 		content += utils.htmlTableFromArray(tab, true);
 
 
@@ -644,6 +683,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programIndicators by group");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -663,6 +703,7 @@ function makeReferenceList(basePath, metaData) {
 			tab.push(["Name:", db.name]);
 			tab.push(["Last updated:", db.lastUpdated.substr(0,10)]);
 			tab.push(["UID:", db.id]);
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dashboards" + i);
 			content += utils.htmlTableFromArrayVertical(tab);
 
 
@@ -735,6 +776,11 @@ function makeReferenceList(basePath, metaData) {
 						}
 					}
 				}
+				else if (dbi.visualization) {
+					type = "visualizations";
+					name = getName(dbi.visualization.id, metaData);
+					id = dbi.visualization.id;
+				}
 				else if (dbi.resources.length > 0) {
 					type = "Resource (shortcuts)";
 					name = " ";
@@ -745,8 +791,9 @@ function makeReferenceList(basePath, metaData) {
 					name = " ";
 					id = " ";
 				}
-				tab.push([type, name, id, dbi.lastUpdated.substr(0,10), dbi.id]);
+				tab.push([type, (name ? name : ""), id, dbi.lastUpdated.substr(0,10), dbi.id]);
 			}
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dashboardItems" + i);
 			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
@@ -763,6 +810,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.charts[i];
 			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "charts");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -778,6 +826,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.reportTables[i];
 			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "reportTables");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -794,6 +843,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.maps[i];
 			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "maps");
 		content += utils.htmlTableFromArray(tab, true);
 
 		//mapviews
@@ -812,6 +862,7 @@ function makeReferenceList(basePath, metaData) {
 					}
 				}
 			}
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "mapViews");
 			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
@@ -828,6 +879,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.eventReports[i];
 			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "eventReports");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -844,6 +896,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.eventCharts[i];
 			tab.push([item.name, (item.description ? item.description : " "), item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "eventCharts");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -860,6 +913,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.reports[i];
 			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "reports");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -875,6 +929,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.documents[i];
 			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "documents");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -890,6 +945,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.sqlViews[i];
 			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "sqlViews");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -919,6 +975,7 @@ function makeReferenceList(basePath, metaData) {
 				var item = legendSet.legends[j];
 				tab.push([item.name, item.startValue, item.endValue, item.lastUpdated, item.id]);
 			}
+			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "legendSets" + i);
 			content += utils.htmlTableFromArray(tab, true);
 		}
 	}
@@ -935,6 +992,7 @@ function makeReferenceList(basePath, metaData) {
 			let teif = metaData.trackedEntityInstanceFilters[i];
 			tab.push([teif.name, teif.lastUpdated.substr(0, 10), teif.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "trackedEntityInstanceFilters");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -950,6 +1008,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.userGroups[i];
 			tab.push([item.name, item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "userGroups");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -964,6 +1023,7 @@ function makeReferenceList(basePath, metaData) {
 			var item = metaData.users[i];
 			tab.push([item.userCredentials.username, item.lastUpdated.substr(0,10), item.id]);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "users");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
@@ -985,6 +1045,9 @@ function makeReferenceList(basePath, metaData) {
 
 	content += utils.htmlTail();
 	content = pretty(content);
+
+	//TODO add error handling
+	utils.saveWorkbook(wrkBook, (basePath + "/reference.xlsx"));
 
 	fs.writeFile(basePath + "/reference.html", content, function(err) {
 		if(err) {
