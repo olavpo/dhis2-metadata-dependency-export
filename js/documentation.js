@@ -692,6 +692,9 @@ function makeReferenceList(basePath, metaData) {
 		referenced["dashboards"] = true;
 		referenced["dashboardItems"] = true;
 		toc.push({"id": "dashboards", "name": "Dashboards"});
+		let xlDashTab = [["Name", "Last updated", "UID"]];
+		let xlDbiTab = [[ "Content UID", "Content/item type", "Content name", "Dashboard Item UID", "Last updated", "Dashboard UID"]];
+		let tabTemp;
 
 		var db, dbi;
 		content += utils.htmlHeader("Dashboards", 2, "dashboards");
@@ -699,16 +702,17 @@ function makeReferenceList(basePath, metaData) {
 			db = metaData.dashboards[i];
 
 			content += utils.htmlHeader(db.name, 3);
-			tab = [["Property", "Value"]];
-			tab.push(["Name:", db.name]);
-			tab.push(["Last updated:", db.lastUpdated.substr(0,10)]);
-			tab.push(["UID:", db.id]);
-			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dashboards" + i);
-			content += utils.htmlTableFromArrayVertical(tab);
+			tab = [["Name", "Last updated", "UID"]];
+			tabTemp = ([db.name, db.lastUpdated.substr(0,10), db.id]);
+			tab.push(tabTemp);
+			xlDashTab.push(tabTemp);
+			//tab.push([db.name, db.lastUpdated.substr(0,10), db.id]);
+			
+			content += utils.htmlTableFromArray(tab);
 
 
 			content += utils.htmlHeader("Dashboard items", 4);
-			tab = [["Content/item type", "Content name", "Content UID", "Last updated", "Dashboard Item UID"]];
+			tab = [[ "Content UID", "Content/item type", "Content name", "Dashboard Item UID", "Last updated", "Dashboard UID"]];
 
 			for (var j = 0; j < db.dashboardItems.length; j++) {
 
@@ -778,8 +782,14 @@ function makeReferenceList(basePath, metaData) {
 				}
 				else if (dbi.visualization) {
 					type = "visualizations";
-					name = getName(dbi.visualization.id, metaData);
-					id = dbi.visualization.id;
+					for (let k = 0; k < metaData.visualizations.length; k++) {
+						if (dbi.visualization.id === metaData.visualizations[k].id) {
+							name = metaData.visualizations[k].name;
+							id = metaData.visualizations[k].id;
+						}
+					}
+					//name = getName(dbi.visualization.id, metaData);
+					//id = dbi.visualization.id;
 				}
 				else if (dbi.resources.length > 0) {
 					type = "Resource (shortcuts)";
@@ -791,11 +801,15 @@ function makeReferenceList(basePath, metaData) {
 					name = " ";
 					id = " ";
 				}
-				tab.push([type, (name ? name : ""), id, dbi.lastUpdated.substr(0,10), dbi.id]);
+				tabTemp = [id, type, (name ? name : ""), dbi.id, dbi.lastUpdated.substr(0,10), db.id ];
+				tab.push(tabTemp);
+				xlDbiTab.push(tabTemp);
+				//tab.push([id, type, (name ? name : ""), dbi.id, dbi.lastUpdated.substr(0,10), db.id ]);
 			}
-			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dashboardItems" + i);
 			content += utils.htmlTableFromArray(tab, true);
 		}
+		utils.appendWorksheet(utils.sheetFromTable(xlDashTab, true), wrkBook, "dashboards");
+		utils.appendWorksheet(utils.sheetFromTable(xlDbiTab, true), wrkBook, "dashboardItems");
 	}
 
 	//charts
