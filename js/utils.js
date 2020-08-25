@@ -105,12 +105,11 @@ function sortMetaDataArray(toSort) {
 	//Look for name - assume that sort order is not important for "nameable" objects
 	if (toSort[0].hasOwnProperty("name")) {
 		
-		//first sort by ID, then name, where possible - makes sort reliable when there are duplicates in the names (e.g. catOptCombos)
+		//Sort objects by ID
 		if (toSort[0].hasOwnProperty("id")) {
 			toSort = arraySortByProperty(toSort, "id", false, false);
 		}
 
-		toSort = arraySortByProperty(toSort, "name", false, false);
 	}
 	
 
