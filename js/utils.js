@@ -425,10 +425,10 @@ function sheetFromTable(aoa, header) {
 			}
 
 			if (R % 2 == 0 && R > 0) {
-                cell.s = (cell.s ? cell.s : {});
+				cell.s = (cell.s ? cell.s : {});
 				cell.s.fill = {fgColor: {rgb: "d5d5f2"}};
 			} else if ( R > 0 ) {
-                cell.s = (cell.s ? cell.s : {});
+				cell.s = (cell.s ? cell.s : {});
                 cell.s.fill = {fgColor: {rgb: "e4e4f6"}};
 			}
 			if (!colWidths[C]) colWidths[C] = 1;
