@@ -5,6 +5,8 @@ var fs = require("fs");
 var Q = require("q");
 var jsonFormat = require("json-format");
 var jsonSort = require("sort-json");
+var XLSX = require("xlsx");
+var XLSXs = require("xlsx-style");
 
 module.exports.saveFileJson = saveFileJson;
 module.exports.sortMetaData = sortMetaData;
@@ -24,6 +26,10 @@ module.exports.isArray = isArray;
 module.exports.arraySortByProperty = arraySortByProperty;
 module.exports.arrayFromKeys = arrayFromKeys;
 
+module.exports.sheetFromTable = sheetFromTable;
+module.exports.createWorkbook = createWorkbook;
+module.exports.appendWorksheet = appendWorksheet;
+module.exports.saveWorkbook = saveWorkbook;
 
 function saveFileJson(fileName, jsonContent) {
 	var deferred = Q.defer();
@@ -258,7 +264,6 @@ function idsFromIndicatorFormula(numeratorFormula, denominatorFormula, dataEleme
 }
 
 
-
 function programIndicatorIdsFromIndicatorFormula(numeratorFormula, denominatorFormula) {
 
 	var matches = arrayMerge(numeratorFormula.match(/I{\w{11}}/g), denominatorFormula.match(/I{\w{11}}/g));
@@ -270,7 +275,6 @@ function programIndicatorIdsFromIndicatorFormula(numeratorFormula, denominatorFo
 
 	return arrayRemoveDuplicates(matches);
 }
-
 
 
 function idsFromFormula(formula, dataElementOnly) {
@@ -398,3 +402,58 @@ function arrayFromKeys(obj) {
 }
 
 
+/*
+ * Excel reference generation
+ */
+function sheetFromTable(aoa, header) {
+	var sheet = XLSX.utils.aoa_to_sheet(aoa);
+	var range = XLSX.utils.decode_range(sheet["!ref"]);
+	let colWidths = [];
+
+	for (let R = range.s.r; R <= range.e.r; R++) {
+        for (let C = range.s.c; C <= range.e.c; C++) {
+			let cell = sheet[XLSXs.utils.encode_cell({c:C, r:R})];
+
+			if (header && R == 0) {
+				cell.s = {font: {bold: true}};
+				cell.s.fill = {fgColor: {rgb: "a5a5e2"}};
+
+			} else if (R == 0) {
+				cell.s = (cell.s ? cell.s : {});
+				cell.s.fill = {fgColor: {rgb: "d5d5f2"}};
+			}
+
+			if (R % 2 == 0 && R > 0) {
+				cell.s = (cell.s ? cell.s : {});
+				cell.s.fill = {fgColor: {rgb: "d5d5f2"}};
+			} else if ( R > 0 ) {
+				cell.s = (cell.s ? cell.s : {});
+                cell.s.fill = {fgColor: {rgb: "e4e4f6"}};
+			}
+			if (!colWidths[C]) colWidths[C] = 1;
+			colWidths[C] = (cell.v.length > colWidths[C]) ? cell.v.length + 2 : colWidths[C];
+		}
+
+	}
+
+	sheet["!cols"] = (sheet["!cols"]) ? sheet["!cols"] : [];
+	for (let col = 0; col < colWidths.length; col++) {
+		sheet["!cols"].push( {wch: colWidths[col]});
+	
+	}
+
+	return sheet;
+}
+
+
+function createWorkbook() {
+	return XLSX.utils.book_new();
+}
+
+function appendWorksheet(sheet, book, name) {
+	XLSX.utils.book_append_sheet(book, sheet, name);
+}
+
+function saveWorkbook(book, file) {
+	XLSXs.writeFile(book, file);
+}
