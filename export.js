@@ -839,7 +839,10 @@ function dependencyExport(type, ids) {
 
 		deferred.resolve(true);
 	}, function(fail){
-		console.log( "Fail:" + fail );
+		console.error( 'Error in dependency export' );
+		if (fail.data) {
+			console.log(fail.data);
+		}
 	});
 
 	return deferred.promise;
