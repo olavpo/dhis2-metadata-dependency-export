@@ -301,6 +301,22 @@ function makeReferenceList(basePath, metaData) {
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
+	//attributes
+	if (metaData.attributes && metaData.attributes.length > 0) {
+		referenced["attributes"] = true;
+		toc.push({ "id": "attributes", "name": "Attributes"});
+
+		content += utils.htmlHeader("Attributes", 2, "attributes");
+		tab = [["Name", "Shortname", "Last updated", "UID"]];
+
+		for (let i = 0; i < metaData.attributes.length; i++) {
+			let attr = metaData.attributes[i];
+			tab.push([attr.name, attr.shortName, attr.lastUpdated.substr(0,10), attr.id]);
+		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "attributes");
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
 	//data elements: name, shortname, description, categorycombo, uid
 	if (metaData.dataElements && metaData.dataElements.length > 0) {
 		referenced["dataElements"] = true;
