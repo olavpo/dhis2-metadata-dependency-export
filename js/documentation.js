@@ -847,7 +847,12 @@ function makeReferenceList(basePath, metaData) {
 					type = "Report (shortcuts)";
 					name = " ";
 					id = " ";
+				} else {
+					id = "";
+					type = (dbi.type ? dbi.type : "Undefined");
+					name = (dbi.name? dbi.name : "");
 				}
+
 				tabTemp = [id, type, (name ? name : ""), dbi.id, dbi.lastUpdated.substr(0,10), db.id ];
 				tab.push(tabTemp);
 				xlDbiTab.push(tabTemp);
