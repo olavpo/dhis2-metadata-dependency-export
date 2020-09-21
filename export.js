@@ -2007,7 +2007,7 @@ function makeFolder() {
 
 function removeDuplicateObjects() {
 	//Remove programStageDataElements and programTrackedEntityAttributes from root level of metadata
-	if (metaData.programStageDataElements.length > 0) {
+	if (metaData.hasOwnProperty("programStageDataElements") && metaData.programStageDataElements.length > 0) {
 		delete metaData.programStageDataElements;
 	}
 	if (metaData.hasOwnProperty("programTrackedEntityAttributes") && metaData.programTrackedEntityAttributes.length > 0) {
