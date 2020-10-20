@@ -25,6 +25,7 @@ var dhis2version;
 
 process.on("uncaughtException", function (err) {
 	console.log("Caught exception: " + err);
+	console.log(err);
 });
 
 run();
