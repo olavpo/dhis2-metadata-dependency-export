@@ -213,8 +213,10 @@ function makeReferenceList(basePath, metaData) {
 			for (var ps of prog.programStages) {
 				ps = getObject(ps.id, metaData);
 				for (var psde of ps.programStageDataElements) {
-					tab.push([ps.name, programSectionFromStageAndElement(ps.id, psde.dataElement.id, metaData), getName(psde.dataElement.id, metaData)]);
-					xlSectTab.push([ps.name, programSectionFromStageAndElement(ps.id, psde.dataElement.id, metaData), getName(psde.dataElement.id, metaData)]);
+					let psSection = programSectionFromStageAndElement(ps.id, psde.dataElement.id, metaData);
+					let deName = getName(psde.dataElement.id, metaData);
+					tab.push([ps.name, psSection, deName]);
+					xlSectTab.push([ps.name, psSection, deName]);
 				}
 			}
 			content += utils.htmlTableFromArray(tab, true);
@@ -1457,7 +1459,7 @@ function dataSetSectionElement(dataSet, metaData) {
 function programSectionFromStageAndElement(stageId, dataElementId, metaData) {
 	for (var pss of metaData.programStageSections) {
 		if(!pss.programStage) {
-			return null;
+			continue;
 		}
 		else if (pss.programStage.id == stageId) {
 			for (var de of pss.dataElements) {
