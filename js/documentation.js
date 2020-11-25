@@ -1098,6 +1098,22 @@ function makeReferenceList(basePath, metaData) {
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
+	//programNotificationTemplates
+	if (metaData.programNotificationTemplates && metaData.programNotificationTemplates.length > 0) {
+		referenced.programNotificationTemplates = true;
+		toc.push({"id": "programNotificationTemplates", "name": "ProgramNotificationTemplates"});
+
+		content += utils.htmlHeader("ProgramNotificationTemplates", 2, "programNotificationTemplates");
+		tab = [["Name", "UID", "Last updated",]];
+
+		for (let i =0; i < metaData.programNotificationTemplates.length; i++) {
+			let item = metaData.programNotificationTemplates[i];
+			tab.push([(item.name ? item.name : ""), item.id, item.lastUpdated.substr(0,10)]);
+		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "programNotificationTemplates");
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
 	//user groups
 	if (metaData.userGroups && metaData.userGroups.length > 0) {
 		referenced["userGroups"] = true;
