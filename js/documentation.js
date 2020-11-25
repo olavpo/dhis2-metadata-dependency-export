@@ -149,7 +149,7 @@ function makeReferenceList(basePath, metaData) {
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.dataelement]);
 				}
-				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataElements");
+				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataSetdataElements");
 				content += utils.htmlTableFromArray(tab, true);
 			}
 		}
