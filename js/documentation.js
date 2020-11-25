@@ -494,7 +494,7 @@ function makeReferenceList(basePath, metaData) {
 				}
 			}
 		}
-		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryOptionGroupSets");
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryOptionGroupsBySet");
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
