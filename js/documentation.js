@@ -574,7 +574,7 @@ function makeReferenceList(basePath, metaData) {
 		for (var i = 0; i < metaData.validationRules.length; i++) {
 			var vr = metaData.validationRules[i];
 
-			tab.push([vr.name, vr.instruction, vr.leftSide.description, vr.operator, vr.rightSide.description, vr.lastUpdated.substr(0,10), vr.id]);
+			tab.push([vr.name, (vr.instruction ? vr.instruction : ""), vr.leftSide.description, vr.operator, vr.rightSide.description, vr.lastUpdated.substr(0,10), vr.id]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "validationRules");
 		content += utils.htmlTableFromArray(tab, true);
@@ -692,7 +692,7 @@ function makeReferenceList(basePath, metaData) {
 			}
 
 			tab.push([ind.id, ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""),
-			ind.numeratorDescription, ind.denominatorDescription, type, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), indicatorGroupsFromIndicator(ind.id, metaData.indicatorGroups)]);
+			(ind.numeratorDescription ? ind.numeratorDescription : ""), (ind.denominatorDescription ? ind.denominatorDescription : ""), type, (ind.lastUpdated ? ind.lastUpdated.substr(0,10) : ""), indicatorGroupsFromIndicator(ind.id, metaData.indicatorGroups)]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "indicators");
 		content += utils.htmlTableFromArray(tab, true);
