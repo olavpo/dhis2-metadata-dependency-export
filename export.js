@@ -28,8 +28,21 @@ process.on("uncaughtException", function (err) {
 	console.log(err);
 });
 
-run();
+//If launched with -r argument, run reference generator on specified metadata file
+if (args.r) {
 
+	metaData = JSON.parse(fs.readFileSync(args.r, "utf8"));
+
+	Q.fcall(doc.makeReferenceList('./', metaData))
+	.then(function (res) {
+		if (!res) {
+			console.log('Something went wrong in makeReferenceList()');
+		}
+	});
+	
+} else {
+run();
+}
 
 /**
  * Prompt user and password, then make a queue of exports to process
