@@ -102,6 +102,12 @@ function makeReferenceList(basePath, metaData) {
 		referenced["dataEntryForms"] = true;
 		toc.push({"id": "dataSets", "name": "Data Sets"});
 
+		var xldataSetTab = [["Name", "Custom form", "Sections", "Last updated", "UID"]];
+		var xlSectionTab = [["Data Set", "Section name", "Last updated", "UID"]];
+		var xlDataSetSectTab = [["Data Set", "Data Set Section","Section UID", "Data Element", "Data Element UID"]];
+		var xlDataSetDataElements = [["Data Set", "Data Elements"]]
+		var isSection = false;
+
 		var ds, sec, de;
 		content += utils.htmlHeader("Data sets", 2, "dataSets");
 		for (var i = 0; i < metaData.dataSets.length; i++) {
@@ -116,18 +122,19 @@ function makeReferenceList(basePath, metaData) {
 			tab.push(["Sections:", (dsSec.length > 0 ? "Yes" : "No")]);
 			tab.push(["Last updated", ds.lastUpdated.substr(0,10)]);
 			tab.push(["UID:", ds.id]);
+			xldataSetTab.push([ds.name, (ds.dataEntryForm ? ds.dataEntryForm.id : "No"), (dsSec.length > 0 ? "Yes" : "No"), ds.lastUpdated.substr(0,10), ds.id]);
 
-			utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataSets");
 			content += utils.htmlTableFromArrayVertical(tab);
 
 			if (dsSec.length > 0) {
+				isSection = true;
 				content += utils.htmlHeader("Sections", 4);
 				tab = [["Section", "Last updated", "UID"]];
 
 				for (var sec of sections(ds, metaData)) {
 					tab.push([sec.name, sec.lastUpdated.substr(0,10), sec.id]);
+					xlSectionTab.push([ds.name, sec.name, sec.lastUpdated.substr(0,10), sec.id]);
 				}
-				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "sections");
 				content += utils.htmlTableFromArray(tab, true);
 
 
@@ -137,8 +144,8 @@ function makeReferenceList(basePath, metaData) {
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.section, row.dataElement]);
+					xlDataSetSectTab.push([sec.name, row.section, row.sectionId, row.dataElement, row.dataElementId]);
 				}
-				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataSetSections");
 				content += utils.htmlTableFromArray(tab, true);
 			}
 			else {
@@ -148,10 +155,17 @@ function makeReferenceList(basePath, metaData) {
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.dataelement]);
+					xlDataSetDataElements.push([ds.name, row.dataElement]);
 				}
-				utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataSetdataElements");
 				content += utils.htmlTableFromArray(tab, true);
 			}
+		}
+		utils.appendWorksheet(utils.sheetFromTable(xldataSetTab, true), wrkBook, "dataSets");
+		if (isSection) {
+			utils.appendWorksheet(utils.sheetFromTable(xlSectionTab, true), wrkBook, "sections");
+			utils.appendWorksheet(utils.sheetFromTable(xlDataSetSectTab, true), wrkBook, "dataSetSections");
+		} else {
+			utils.appendWorksheet(utils.sheetFromTable(xlDataSetDataElements, true), wrkBook, "dataSetdataElements");
 		}
 	}
 
@@ -1455,7 +1469,9 @@ function dataSetSectionElement(dataSet, metaData) {
 		for (var de of sec.dataElements) {
 			structure.push({
 				"section": sec.name,
-				"dataElement": dataElement(de.id, metaData).name
+				"sectionId": sec.id,
+				"dataElement": dataElement(de.id, metaData).name,
+				"dataElementId": de.id
 			});
 			delete deIndex[de.id];
 		}
@@ -1464,7 +1480,8 @@ function dataSetSectionElement(dataSet, metaData) {
 	for (var de in deIndex) {
 		structure.push({
 			"section": "None",
-			"dataElement": dataElement(de, metaData).name
+			"dataElement": dataElement(de, metaData).name,
+			"dataElementId": de.id
 		});
 	}
 
