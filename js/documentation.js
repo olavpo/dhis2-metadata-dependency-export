@@ -531,7 +531,6 @@ function makeReferenceList(basePath, metaData) {
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
-	//options TODO add to excelref
 	if (metaData.options && metaData.options.length > 0) {
 		referenced["options"] = true;
 		toc.push({"id": "options", "name": "Options"});
@@ -542,8 +541,14 @@ function makeReferenceList(basePath, metaData) {
 		var opt;
 		for (var i = 0; i < metaData.options.length; i++) {
 			opt = metaData.options[i];
-			content += "<tr><td>" + getName(opt.optionSet.id, metaData) + "</td><td>" + opt.name + "</td><td>" + opt.code + "</td><td>" + opt.lastUpdated.substr(0,10) + "</td><td>" + opt.id + "</td></tr>";
-			tabTemp.push([opt.id, opt.name, opt.code, opt.lastUpdated.substr(0,10), opt.optionSet.id]);
+			let optSetName = "";
+			let optSetId = "";
+			if (opt.optionSet) {
+				optSetName = getName(opt.optionSet.id, metaData);
+				optSetId = opt.optionSet.id;
+			}
+			content += "<tr><td>" + optSetName + "</td><td>" + opt.name + "</td><td>" + opt.code + "</td><td>" + opt.lastUpdated.substr(0,10) + "</td><td>" + opt.id + "</td></tr>";
+			tabTemp.push([opt.id, opt.name, opt.code, opt.lastUpdated.substr(0,10), optSetId]);
 		}
 		content += "</table>";
 		utils.appendWorksheet(utils.sheetFromTable(tabTemp, true), wrkBook, "options");
