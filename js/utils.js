@@ -291,7 +291,7 @@ function idsFromFormula(formula, dataElementOnly) {
 }
 
 
-function programIndicatorIdsFromFormula(numeratorFormula, denominatorFormula) {
+function programIndicatorIdsFromFormula(formula) {
 
 	var matches = formula.match(/I{\w{11}}/g);
 	if (!matches) return [];
