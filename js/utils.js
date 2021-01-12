@@ -1,9 +1,12 @@
+/*jshint esversion: 6 */
 "use strict";
 
 var fs = require("fs");
 var Q = require("q");
 var jsonFormat = require("json-format");
 var jsonSort = require("sort-json");
+var XLSX = require("xlsx");
+var XLSXs = require("xlsx-style");
 
 module.exports.saveFileJson = saveFileJson;
 module.exports.sortMetaData = sortMetaData;
@@ -23,6 +26,10 @@ module.exports.isArray = isArray;
 module.exports.arraySortByProperty = arraySortByProperty;
 module.exports.arrayFromKeys = arrayFromKeys;
 
+module.exports.sheetFromTable = sheetFromTable;
+module.exports.createWorkbook = createWorkbook;
+module.exports.appendWorksheet = appendWorksheet;
+module.exports.saveWorkbook = saveWorkbook;
 
 function saveFileJson(fileName, jsonContent) {
 	var deferred = Q.defer();
@@ -48,8 +55,48 @@ function saveFileJson(fileName, jsonContent) {
 function sortMetaData(metaData) {
 	var objects = arrayFromKeys(metaData);
 	for (var i = 0; i < objects.length; i++) {
-		if (Array.isArray(metaData[objects[i]])) {
-			metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+		if (Array.isArray(metaData[objects[i]]) && (objects[i] != "programTrackedEntityAttributes")) {
+			switch (objects[i]) {
+				case "dataElementGroups":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].dataElements = arraySortByProperty(metaData[objects[i]][j].dataElements, "id", false, false);
+					}
+					break;
+
+				case "indicatorGroups":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].indicators = arraySortByProperty(metaData[objects[i]][j].indicators, "id", false, false);
+					}
+					break;
+
+				case "programIndicatorGroups":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].programIndicators = arraySortByProperty(metaData[objects[i]][j].programIndicators, "id", false, false);
+					}
+					break;
+
+				case "programRuleActions":
+					metaData[objects[i]] = arraySortByProperty(metaData[objects[i]], "id", false, false);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						if (metaData[objects[i]][j].hasOwnProperty("evaluationEnvironments")) {
+							metaData[objects[i]][j].evaluationEnvironments = arraySort(metaData[objects[i]][j].evaluationEnvironments, false);
+						}
+					}
+					break;
+
+				case "programRules":
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+					for (let j = 0; j < metaData[objects[i]].length; j++) {
+						metaData[objects[i]][j].programRuleActions = arraySortByProperty(metaData[objects[i]][j].programRuleActions, "id", false, false);
+					}
+					break;
+
+				default:
+					metaData[objects[i]] = sortMetaDataArray(metaData[objects[i]]);
+			}
 		}
 	}
 	
@@ -61,23 +108,21 @@ function sortMetaDataArray(toSort) {
 
 	if (toSort.length == 0) return [];
 
-	//If possible use name - assume that sort order is not important for "nameable" objects
+	//Look for name - assume that sort order is not important for "nameable" objects
 	if (toSort[0].hasOwnProperty("name")) {
 		
-		//first sort by ID, then name, where possible - makes sort reliable when there are duplicates in the names (e.g. catOptCombos)
+		//Sort objects by ID
 		if (toSort[0].hasOwnProperty("id")) {
 			toSort = arraySortByProperty(toSort, "id", false, false);
 		}
 
-		toSort = arraySortByProperty(toSort, "name", false, false);
 	}
 	
 
 	//Some special cases:
 	//translations
 	if (toSort[0].hasOwnProperty("value") && toSort[0].hasOwnProperty("locale") && toSort[0].hasOwnProperty("property")) {
-		toSort = arraySortByProperty(toSort, "property", false, false);
-		toSort = arraySortByProperty(toSort, "locale", false, false);
+		toSort = sortTranslation(toSort);
 	}
 
 	//legends
@@ -85,10 +130,15 @@ function sortMetaDataArray(toSort) {
 		toSort = arraySortByProperty(toSort, "startValue", true, false);
 	}
 
+	//analyticsPeriodBoundaries in programIndicators
+	if (toSort[0].hasOwnProperty("analyticsPeriodBoundaryType")) {
+		toSort = arraySortByProperty(toSort, "id", false, false);
+	}
+
 	//Check if the objects in the array contains other arrays that should be sorted
 	for (var i = 0; i < toSort.length; i++) {
 		for (var prop in toSort[i]) {
-			if (Array.isArray(toSort[i][prop])) {
+			if (Array.isArray(toSort[i][prop]) && (prop != "programTrackedEntityAttributes") && (prop != "programStageDataElements") ) {
 				toSort[i][prop] = sortMetaDataArray(toSort[i][prop]);
 			}
 		}
@@ -214,7 +264,6 @@ function idsFromIndicatorFormula(numeratorFormula, denominatorFormula, dataEleme
 }
 
 
-
 function programIndicatorIdsFromIndicatorFormula(numeratorFormula, denominatorFormula) {
 
 	var matches = arrayMerge(numeratorFormula.match(/I{\w{11}}/g), denominatorFormula.match(/I{\w{11}}/g));
@@ -226,7 +275,6 @@ function programIndicatorIdsFromIndicatorFormula(numeratorFormula, denominatorFo
 
 	return arrayRemoveDuplicates(matches);
 }
-
 
 
 function idsFromFormula(formula, dataElementOnly) {
@@ -309,6 +357,37 @@ function arraySortByProperty(array, property, numeric, reverse) {
 
 }
 
+function sortTranslation(array) {
+
+	return array.sort(function(a, b) {
+		var res;
+		if (a.locale == b.locale) {
+			if (a.property < b.property) {
+				return -1;
+			}
+			if (a.property > b.property) {
+				return 1;
+			}
+			return 0;
+
+		}
+		if (a.locale < b.locale) {
+			return -1;
+		}
+		if (a.locale > b.locale) {
+			return 1;
+		}
+	});
+}
+
+
+function arraySort(array, reverse) {
+
+	return array.sort(function(a, b) {
+        if (reverse) return a > b ? -1 : 1;
+        else return a < b ? -1 : 1;
+	});
+}
 
 
 function arrayFromKeys(obj) {
@@ -323,3 +402,58 @@ function arrayFromKeys(obj) {
 }
 
 
+/*
+ * Excel reference generation
+ */
+function sheetFromTable(aoa, header) {
+	var sheet = XLSX.utils.aoa_to_sheet(aoa);
+	var range = XLSX.utils.decode_range(sheet["!ref"]);
+	let colWidths = [];
+
+	for (let R = range.s.r; R <= range.e.r; R++) {
+        for (let C = range.s.c; C <= range.e.c; C++) {
+			let cell = sheet[XLSXs.utils.encode_cell({c:C, r:R})];
+
+			if (header && R == 0) {
+				cell.s = {font: {bold: true}};
+				cell.s.fill = {fgColor: {rgb: "a5a5e2"}};
+
+			} else if (R == 0) {
+				cell.s = (cell.s ? cell.s : {});
+				cell.s.fill = {fgColor: {rgb: "d5d5f2"}};
+			}
+
+			if (R % 2 == 0 && R > 0) {
+				cell.s = (cell.s ? cell.s : {});
+				cell.s.fill = {fgColor: {rgb: "d5d5f2"}};
+			} else if ( R > 0 ) {
+				cell.s = (cell.s ? cell.s : {});
+                cell.s.fill = {fgColor: {rgb: "e4e4f6"}};
+			}
+			if (!colWidths[C]) colWidths[C] = 1;
+			colWidths[C] = (cell.v.length > colWidths[C]) ? cell.v.length + 2 : colWidths[C];
+		}
+
+	}
+
+	sheet["!cols"] = (sheet["!cols"]) ? sheet["!cols"] : [];
+	for (let col = 0; col < colWidths.length; col++) {
+		sheet["!cols"].push( {wch: colWidths[col]});
+	
+	}
+
+	return sheet;
+}
+
+
+function createWorkbook() {
+	return XLSX.utils.book_new();
+}
+
+function appendWorksheet(sheet, book, name) {
+	XLSX.utils.book_append_sheet(book, sheet, name);
+}
+
+function saveWorkbook(book, file) {
+	XLSXs.writeFile(book, file);
+}

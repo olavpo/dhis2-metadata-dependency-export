@@ -12,6 +12,7 @@ var d2 = require("./js/d2.js");
 var doc = require("./js/documentation.js");
 var utils = require("./js/utils.js");
 
+var debug = args.debug ? true : false;
 var metaData;
 var exportQueue = [];
 var lastUrl = "";
@@ -20,14 +21,28 @@ var customObjectsExported = {};
 var exporting = false;
 
 var dhis2schema;
-var dhis2version; 
+var dhis2version;
 
 process.on("uncaughtException", function (err) {
-	console.log("Caught exception: " + err);
+	console.log("Caught exception: ");
+	console.log(err);
 });
 
-run();
+//If launched with -r argument, run reference generator on specified metadata file
+if (args.r) {
 
+	metaData = JSON.parse(fs.readFileSync(args.r, "utf8"));
+
+	Q.fcall(doc.makeReferenceList('./', metaData))
+	.then(function (res) {
+		if (!res) {
+			console.log('Something went wrong in makeReferenceList()');
+		}
+	});
+	
+} else {
+run();
+}
 
 /**
  * Prompt user and password, then make a queue of exports to process
@@ -78,8 +93,7 @@ function readConfig() {
 
 		var files = args._;
 
-		for(var i = 0; i < files.length; i++)
-		{
+		for (var i = 0; i < files.length; i++) {
 			var fileName = files[i];
 			try {
 				thisConf = JSON.parse(fs.readFileSync(fileName, "utf8"));
@@ -90,7 +104,7 @@ function readConfig() {
 				console.log("Please provide a valid path to the configuration file");
 				process.exit(1);
 			}
-			
+
 			if (!thisConf.hasOwnProperty("export")) {
 				console.log("Configuration file " + fileName + " does not have a valid structure");
 				process.exit(1);
@@ -98,7 +112,7 @@ function readConfig() {
 			conf.export = conf.export.concat(thisConf.export);
 			console.log("Loaded configuration file " + fileName);
 		}
-		
+
 	}
 	return true;
 }
@@ -139,7 +153,7 @@ function connectNewInstance() {
 	else {
 		//Start prompt
 		prompt.start();
-		
+
 		var schema = {
 			properties: {
 				username: {
@@ -151,22 +165,22 @@ function connectNewInstance() {
 				}
 			}
 		};
-		
-		prompt.get(schema, function (err, result) {		
+
+		prompt.get(schema, function (err, result) {
 			connectAndExport(result.username, result.password);
-		}); 
+		});
 	}
 }
 
 function connectAndExport(username,password) {
 	d2.authentication(currentExport.url, username, password);
-		
+
 	d2.get("/api/system/info.json").then(function(result) {
 		console.log("\nConnected to instance: " + result.systemName);
 
 		lastUrl = currentExport.url;
 		dhis2version = result.version;
-		
+
 		//Get schema for this dhis2 instance
 		d2.get("/api/schemas.json?fields=plural,shareable,dataShareable").then( function (schema) {
 			dhis2schema = schema.schemas;
@@ -208,23 +222,23 @@ function cancelCurrentExport() {
 /**
  * DASHBOARD (AGGREGATE) EXPORT (2.27)
  **/
- 
+
 /**
  * Start export of complete aggregate packages: dataset and dashboards with deps
  */
 function exportDashboard() {
-	
-	console.log("1. Downloading metadata");		
+
+	console.log("1. Downloading metadata");
 	//Do initial dependency export
 	var promises = [
 		dependencyExport("dashboard", currentExport.dashboardIds)
 	];
 	Q.all(promises).then(function (results) {
-				
+
 		//Get indicators and categoryOptionGroupSets from favourites
 		//Get indicator groups from conf files
 		promises = [
-			indicators(), 
+			indicators(),
 			categoryOptionGroupSetStructure(),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
 			userGroups(),
@@ -235,20 +249,20 @@ function exportDashboard() {
 			//Get legends from data elements, indicators and favourites
 			//Get indicator types from indicators
 			promises = [
-				indicatorTypes(), 
+				indicatorTypes(),
 				legendSets(),
 				customObjects()
 			];
 			Q.all(promises).then(function (results) {
 				console.log("✔ Downloaded metadata successfully");
 				processDashboard();
-			
-			});	
-			
+
+			});
+
 		});
-		
+
 	});
-				
+
 }
 
 
@@ -256,10 +270,15 @@ function exportDashboard() {
  * Verify, modify and save aggregate package
  */
 function processDashboard() {
-	
+
 	var success = true;
 	console.log("\n2. Validating exported metadata");
-	
+
+	//Debug: dump metadata before processing
+	if (debug) {
+		fs.writeFileSync('.\\debug.json', JSON.stringify(metaData));
+	}
+
 	//Remove current configuration of indicators and cateogry option groups
 	clearIndicatorFormulas();
 	clearCategoryOptionGroups();
@@ -267,11 +286,11 @@ function processDashboard() {
 	//Reset/remove lat/long/zoom on maps
 	clearMapZoom();
 	clearMapViews();
-	
+
 	//Add prefix to objects to be mapped
 	prefixIndicators();
 	prefixCategoryOptionGroups();
-	
+
 	//Make sure we don't include orgunit assigment in datasets or users, and orgunit levels in predictors
 	clearOrgunitAssignment();
 
@@ -281,28 +300,28 @@ function processDashboard() {
 
 	//Remove users from user groups
 	clearUserGroups();
-	
+
 	//Make sure the "default defaults" are used
 	setDefaultUid();
 
 	//Remove invalid references to data elements, indicators, catOptGroups from groups (group sets)
 	//Verify that there are no data elements or indicators without groups
-	if (!validateGroupReferences()) success = false;	
-	
+	if (!validateGroupReferences()) success = false;
+
 	//Verify that favourites only use relative orgunits
 	if (!validateFavoriteOrgunits()) success = false;
-	
+
 	//Verify that favourites only use indicators
 	if (!validateFavoriteDataItems()) success = false;
-	
+
 	//Verify that no unsupported data dimensions are used
 	if (!validateFavoriteDataDimension()) success = false;
-	
+
 	/** CUSTOM MODIFICATIONS */
 	if (currentExport.hasOwnProperty("_customFuncs")) {
 		for (var customFunc of currentExport._customFuncs) {
 			var func = new Function("metaData", customFunc);
-			func(metaData); 
+			func(metaData);
 		}
 	}
 
@@ -322,11 +341,11 @@ function processDashboard() {
 				}
 			}
 		};
-		
-		prompt.get(schema, function (err, result) {	
-			if (result.continue == "yes")  saveDashboard();
+
+		prompt.get(schema, function (err, result) {
+			if (result.continue == "yes") saveDashboard();
 			else cancelCurrentExport();
-		});  
+		});
 	}
 }
 
@@ -340,28 +359,28 @@ function saveDashboard() {
 
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);
-	
+
 	//Make a folder for storing the files in this package
-	var basePath = makeFolder();	
+	var basePath = makeFolder();
 	if (!basePath) {
 		exporting = false;
 		nextExport();
 		return;
 	}
-	
+
 	//Add "ID" - package identifier + date
 	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
-	
+
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + "/metadata", metaData),	
+		utils.saveFileJson(basePath + "/metadata", metaData),
 		doc.makeReferenceList(basePath + "/", metaData),
 		doc.makeConfigurationChecklist(basePath + "/", metaData),
-		doc.makeAvailabilityChecklist(basePath + "/", metaData),		
+		doc.makeAvailabilityChecklist(basePath + "/", metaData),
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
-		
+
 	});
 }
 
@@ -370,7 +389,7 @@ function saveDashboard() {
 /**
  * COMPLETE AGGREGATE EXPORT (2.27)
  **/
- 
+
 /**
  * Start export of complete aggregate packages: dataset and dashboards with deps
  */
@@ -386,24 +405,24 @@ function exportAggregate() {
 	they should be included, but for data elements we should only show a warning that 
 	they need to be added to a data set to be included.
 	*/
-		
-	console.log("1. Downloading metadata");	
+
+	console.log("1. Downloading metadata");
 
 	//Do initial dependency export
 	var promises = [
-		dependencyExport("dataSet", currentExport.dataSetIds), 
+		dependencyExport("dataSet", currentExport.dataSetIds),
 		dependencyExport("dashboard", currentExport.dashboardIds),
 		limitedDependencyExport(currentExport.exportDataSetIds),
 		customObjects()
 	];
 	Q.all(promises).then(function (results) {
-				
-		
+
+
 		//Get indicators and categoryOptionGroupSets from favourites and groups
 		//Get validation rules and groups from conf file
 		//Get data element and indicator groups from conf files
 		promises = [
-			indicators(), 
+			indicators(),
 			categoryOptionGroupSetStructure(),
 			validationRules(),
 			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
@@ -417,20 +436,20 @@ function exportAggregate() {
 			//Get indicator types from indicators
 			//Get predictors based on data elements
 			promises = [
-				indicatorTypes(), 
-				legendSets(), 
+				indicatorTypes(),
+				legendSets(),
 				predictors()
 			];
 			Q.all(promises).then(function (results) {
-				
+
 				processAggregate();
-			
-			});	
-			
+
+			});
+
 		});
-		
+
 	});
-				
+
 }
 
 
@@ -441,6 +460,11 @@ function processAggregate() {
 
 	var success = true;
 	console.log("\n2. Validating exported metadata");
+
+	//Debug: dump metadata before processing
+	if (debug) {
+		fs.writeFileSync('.\\debug.json', JSON.stringify(metaData));
+	}
 	
 	//Configure sharing and metadata ownership
 	configureSharing();
@@ -452,41 +476,41 @@ function processAggregate() {
 	//Reset/remove lat/long/zoom on maps
 	clearMapZoom();
 	clearMapViews();
-		
+
 	//Make sure the "default defaults" are used
 	setDefaultUid();
-	
+
 	//Make sure we don't include orgunit assigment in datasets or users, or orgunit levels in predictors
 	clearOrgunitAssignment();
-	
+
 	//Verify that all data elements referred in indicators, validation rules,
 	//predictors are included
 	if (!validateDataElementReference()) success = false;
 
 	//Remove invalid references to data elements or indicators from groups
 	//Verify that there are no data elements or indicators without groups
-	if (!validateGroupReferences()) success = false;	
-	
+	if (!validateGroupReferences()) success = false;
+
 	//Verify that favourites only use relative orgunits
 	if (!validateFavoriteOrgunits()) success = false;
-	
+
 	//Verify that favourites only use indicators
 	if (!validateFavoriteDataItems()) success = false;
-	
+
 	//Verify that no unsupported data dimensions are used
 	if (!validateFavoriteDataDimension()) success = false;
 
 	//Verify that data sets with section include all data elements
 	if (!validationDataSetSections()) success = false;
-	
+
 	/** CUSTOM MODIFICATIONS */
 	if (currentExport.hasOwnProperty("_customFuncs")) {
 		for (var customFunc of currentExport._customFuncs) {
 			var func = new Function("metaData", customFunc);
-			func(metaData); 
+			func(metaData);
 		}
 	}
-	
+
 	if (success) {
 		console.log("✔ Validation passed");
 		saveAggregate();
@@ -503,11 +527,11 @@ function processAggregate() {
 				}
 			}
 		};
-		
-		prompt.get(schema, function (err, result) {	
+
+		prompt.get(schema, function (err, result) {
 			if (result.continue == "yes") saveAggregate();
 			else cancelCurrentExport();
-		});  
+		});
 	}
 }
 
@@ -521,28 +545,28 @@ function saveAggregate() {
 
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);
-	
+
 	//Make a folder for storing the files in this package
 	var basePath = makeFolder();
 	if (!basePath) {
 		exporting = false;
 		nextExport();
 		return;
-	}	
-	
+	}
+
 	//Add "ID" - package identifier + date
 	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
-	
-	
+
+
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + "/metadata", metaData),	
+		utils.saveFileJson(basePath + "/metadata", metaData),
 		doc.makeReferenceList(basePath + "/", metaData),
 		doc.makeAvailabilityChecklist(basePath + "/", metaData)
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
-		
+
 	});
 }
 
@@ -552,7 +576,7 @@ function saveAggregate() {
 /**
  * TRACKER EXPORT
  **/
- 
+
 /**
  * Start export of complete aggregate packages: dataset and dashboards with deps
  */
@@ -568,9 +592,9 @@ function exportTracker() {
 	they should be included, but for data elements we should only show a warning that 
 	they need to be added to a data set to be included.
 	*/
-		
 
-	console.log("1. Downloading metadata");	
+
+	console.log("1. Downloading metadata");
 
 	//Do initial dependency export
 	var promises = [];
@@ -579,16 +603,17 @@ function exportTracker() {
 	if( currentExport.customObjects ) promises.push( customObjects() );
 
 	Q.all(promises).then(function (results) {
-				
-		
+
+
 		//Get indicators and categoryOptionGroupSets from favourites and groups
 		//Get validation rules and groups from conf file
 		//Get data element and indicator groups from conf files
 		promises = [
-			indicators(), 
+			indicators(),
 			categoryOptionGroupSetStructure(),
 			saveObject("dataElementGroups", currentExport.dataElementGroupIds),
 			saveObject("indicatorGroups", currentExport.indicatorGroupIds),
+			saveObject("programIndicatorGroups", currentExport.programIndicatorGroupIds),
 			userGroups(),
 			users()
 		];
@@ -598,22 +623,22 @@ function exportTracker() {
 			//Get indicator types from indicators
 			//Get predictors based on data elements
 			promises = [
-				indicatorTypes(), 
-				legendSets(), 
+				indicatorTypes(),
+				legendSets(),
 				predictors()
 			];
 			Q.all(promises).then(function (results) {
-				
+
 				processTracker();
-			
-			});	
-			
+
+			});
+
 		});
-		
+
 	}, function(fail){
 		console.log("Fail2:" + fail );
 	});
-				
+
 }
 
 
@@ -624,6 +649,15 @@ function processTracker() {
 
 	var success = true;
 	console.log("\n2. Validating exported metadata");
+
+	//Debug: dump metadata before processing
+	if (debug) {
+		fs.writeFileSync('.\\debug.json', JSON.stringify(metaData));
+	}
+
+	//Reset/remove lat/long/zoom on maps
+	clearMapZoom();
+	clearMapViews();
 	
 	//Configure sharing and metadata ownership
 	configureSharing();
@@ -631,13 +665,16 @@ function processTracker() {
 
 	//Remove users from user groups
 	clearUserGroups();
-		
+
 	//Make sure the "default defaults" are used
 	setDefaultUid();
-	
+
 	//Make sure we don't include orgunit assigment in datasets or users
 	clearOrgunitAssignment();
-	
+
+	//Remove duplicate programStageDataElements
+	removeDuplicateObjects();
+
 	//Verify that all data elements referred in indicators, validation rules,
 	//predictors are included
 	if (!validateDataElementReference()) success = false;
@@ -647,14 +684,14 @@ function processTracker() {
 
 	//Remove invalid references to data elements or indicators from groups
 	//Verify that there are no data elements or indicators without groups
-	if (!validateGroupReferences()) success = false;	
-	
+	if (!validateGroupReferences()) success = false;
+
 	//Verify that favourites only use relative orgunits
 	if (!validateFavoriteOrgunits()) success = false;
-	
+
 	//Verify that favourites only use indicators
 	if (!validateFavoriteDataItems()) success = false;
-	
+
 	//Verify that no unsupported data dimensions are used
 	if (!validateFavoriteDataDimension()) success = false;
 
@@ -666,10 +703,10 @@ function processTracker() {
 	if (currentExport.hasOwnProperty("_customFuncs")) {
 		for (var customFunc of currentExport._customFuncs) {
 			var func = new Function("metaData", customFunc);
-			func(metaData); 
+			func(metaData);
 		}
 	}
-	
+
 	if (success) {
 		console.log("✔ Validation passed");
 		saveTracker();
@@ -686,13 +723,13 @@ function processTracker() {
 				}
 			}
 		};
-		
+
 		if(args.ignoreerrors)
 		{
 			saveTracker();
 		} else {
-			prompt.get(schema, function (err, result) {	
-				if (result.continue == "yes")  saveTracker();
+			prompt.get(schema, function (err, result) {
+				if (result.continue == "yes") saveTracker();
 				else cancelCurrentExport();
 			});
 		}
@@ -707,11 +744,18 @@ function saveTracker() {
 
 	console.log("\n3. Saving metadata and documentation");
 
+	/*
+	// Debug: dump unsorted metaData
+	if (debug) {
+		fs.writeFileSync('.\\debug_preSort.json', JSON.stringify(metaData));
+	}
+	*/
+
 	//Sort the content of our package
 	metaData = utils.sortMetaData(metaData);
-	
+
 	//Make a folder for storing the files in this package
-	var basePath = makeFolder();	
+	var basePath = makeFolder();
 	if (!basePath) {
 		exporting = false;
 		nextExport();
@@ -721,16 +765,16 @@ function saveTracker() {
 
 	//Add "ID" - package identifier + date
 	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
-	
-	
+
+
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
-		utils.saveFileJson(basePath + "/metadata", metaData),	
+		utils.saveFileJson(basePath + "/metadata", metaData),
 		doc.makeReferenceList(basePath + "/", metaData)
 	]).then(function(results) {
 		exporting = false;
 		nextExport();
-		
+
 	});
 }
 
@@ -739,7 +783,7 @@ function saveTracker() {
 /** 
  * METHODS FOR FETCHING METADATA 
  */
- 
+
 //Generic "object by ID" function that returns metadata
 function object(type, ids) {
 	ids = utils.arrayRemoveDuplicates(ids);
@@ -755,19 +799,19 @@ function saveObject(type, ids) {
 
 	//Add any customObjects ids for this type, if any
 	ids = ids.concat(customObjectIds(type));
-	
+
 	object(type, ids).then(function(result) {
 		addToMetdata(type, result[type]);
-		deferred.resolve(true);			
+		deferred.resolve(true);
 	},
-	function(result) {
-		console.log("\nFailed saving objects: " + type + " ids:" + ids);
-	});
+		function(result) {
+			console.log("\nFailed saving objects: " + type + " ids:" + ids);
+		});
 
 	return deferred.promise;
 }
 
- 
+
 //Get multiple objects with dependencies
 function dependencyExport(type, ids) {
 	var deferred = Q.defer();
@@ -775,24 +819,24 @@ function dependencyExport(type, ids) {
 	var promises = [];
 	if(ids)
 	{
-			
+
 		for (var id of ids) {
 			switch (type) {
-			case "dataSet": 
-				promises.push(d2.get("/api/dataSets/" + id + 
+				case "dataSet":
+					promises.push(d2.get("/api/dataSets/" + id +
 						"/metadata.json?attachment=metadataDependency.json"));
-				break;
-			case "dashboard": 
-				promises.push(d2.get("/api/dashboards/" + id + 
+					break;
+				case "dashboard":
+					promises.push(d2.get("/api/dashboards/" + id +
 						"/metadata.json?attachment=metadataDependency.json"));
-				break;
-			case "program": 
-				promises.push(d2.get("/api/programs/" + id + 
+					break;
+				case "program":
+					promises.push(d2.get("/api/programs/" + id +
 						"/metadata.json?attachment=metadataDependency.json"));
-				break;
-			default:
-				console.log("Unknown object for dependency export: " + type);
-				deferred.reject(false);
+					break;
+				default:
+					console.log("Unknown object for dependency export: " + type);
+					deferred.reject(false);
 			}
 		}
 	}
@@ -805,56 +849,60 @@ function dependencyExport(type, ids) {
 					addToMetdata(object, result[object]);
 				}
 			}
-		}	
-		
+		}
+
 		deferred.resolve(true);
 	}, function(fail){
-		console.log( "Fail:" + fail );
-	});	
-	
+		console.error( 'Error in dependency export' );
+		if (fail.data) {
+			console.log(fail.data);
+		}
+	});
+
 	return deferred.promise;
 }
 
 
 function limitedDependencyExport(dataSetIds) {
-	if (dataSetIds.length == 0) return true;	
-	
-	
+	if (dataSetIds.length == 0) return true;
+
+
 	var deferred = Q.defer();
-	
+
 	var promises = [];
 	for (var id of dataSetIds) {
-		promises.push(d2.get("/api/dataSets/" + id + 
+		promises.push(d2.get("/api/dataSets/" + id +
 			"/metadata.json?attachment=metadataDependency.json"));
 	}
-	
+
 	Q.all(promises).then(function(results) {
 		for (var result of results) {
-			
+
 			delete result.dataSets;
 			delete result.sections;
 			delete result.dataEntryForms;
-			
+
 			for (var object in result) {
 				if (utils.isArray(result[object])) {
 					addToMetdata(object, result[object]);
 				}
 			}
-		}	
-		
+		}
+
 		deferred.resolve(true);
-	});	
-	
-	
+	});
+
+
 	return deferred.promise;
 }
 
 
-function indicators() {	
+function indicators() {
 	var deferred = Q.defer();
 
 	//Indicators from favorites
-	var types = ["charts", "mapViews", "reportTables"], ids = [];
+	//added visualizations for 2.34
+	var types = ["charts", "mapViews", "reportTables", "visualizations"], ids = [];
 	for (var k = 0; k < types.length; k++) {
 		for (var i = 0; metaData.hasOwnProperty(types[k]) && i < metaData[types[k]].length; i++) {
 			for (var j = 0; j < metaData[types[k]][i].dataDimensionItems.length; j++) {
@@ -864,22 +912,24 @@ function indicators() {
 			}
 		}
 	}
-	
+
+	if (!currentExport.exportIndicatorGroupsIds) currentExport.exportIndicatorGroupsIds = [];
+
 	var promises = [];
 	promises.push(saveObject("indicators", ids));
-	promises.push(d2.get("/api/indicators.json?filter=indicatorGroups.id:in:[" + 		
+	promises.push(d2.get("/api/indicators.json?filter=indicatorGroups.id:in:[" +
 		currentExport.exportIndicatorGroupsIds.join(",") + "]&fields=:owner&paging=false"));
-	
+
 	Q.all(promises).then(function (results) {
 		addToMetdata("indicators", results[1].indicators);
 		deferred.resolve(true);
 	});
-	
+
 	return deferred.promise;
 }
 
 
-function indicatorTypes() {	
+function indicatorTypes() {
 	var ids = [], ind = metaData.indicators;
 	for (var i = 0; ind && i < ind.length; i++) {
 		ids.push(ind[i].indicatorType.id);
@@ -891,9 +941,10 @@ function indicatorTypes() {
 
 function categoryOptionGroupSetStructure() {
 	var deferred = Q.defer();
+	//added visualizations for 2.34
 
 	var ids = [];
-	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			if (item.hasOwnProperty("categoryOptionGroupSetDimensions")) {
@@ -901,16 +952,16 @@ function categoryOptionGroupSetStructure() {
 					ids.push(cogs.categoryOptionGroupSet.id);
 				}
 			}
-		}	
+		}
 	}
 
 	var promises = [];
 	ids = ids.concat(customObjectIds("categoryOptionGroupSets"));
 	promises.push(object("categoryOptionGroupSets", ids));
-	promises.push(d2.get("/api/categoryOptionGroups.json?fields=:owner&filter=groupSets.id:in:[" + 
+	promises.push(d2.get("/api/categoryOptionGroups.json?fields=:owner&filter=groupSets.id:in:[" +
 		ids.join(",") + "]&paging=false"));
 	Q.all(promises).then(function (results) {
-		
+
 		for (var result of results) {
 			for (var object in result) {
 				if (utils.isArray(result[object])) {
@@ -918,9 +969,9 @@ function categoryOptionGroupSetStructure() {
 				}
 			}
 		}
-		deferred.resolve(true);		
+		deferred.resolve(true);
 	});
-	
+
 	return deferred.promise;
 }
 
@@ -931,14 +982,14 @@ function validationRules() {
 	var promises = [], ids = currentExport.validationRuleGroupIds;
 	ids = ids.concat(customObjectIds("validationRuleGroups"));
 	promises.push(object("validationRuleGroups", ids));
-	promises.push(d2.get("/api/validationRules.json?fields=:owner&filter=validationRuleGroups.id:in:[" + 
+	promises.push(d2.get("/api/validationRules.json?fields=:owner&filter=validationRuleGroups.id:in:[" +
 		ids.join(",") + "]&paging=false"));
-	
+
 	var validationRuleIds = customObjectIds("validationRules");
 	if (validationRuleIds.length > 0) promises.push(object("validationRules", validationRuleIds));
-	
+
 	Q.all(promises).then(function (results) {
-		
+
 		for (var result of results) {
 			for (var object in result) {
 				if (utils.isArray(result[object])) {
@@ -946,9 +997,9 @@ function validationRules() {
 				}
 			}
 		}
-		deferred.resolve(true);		
+		deferred.resolve(true);
 	});
-	
+
 	return deferred.promise;
 }
 
@@ -963,25 +1014,26 @@ function predictors() {
 
 	//All predictors that target a data element in the export
 	var promises = [];
-	promises.push(d2.get("/api/predictors.json?fields=:owner&paging=false&filter=output.id:in:[" 
-			+ dataElementIds.join(",") + "]"));
+	promises.push(d2.get("/api/predictors.json?fields=:owner&paging=false&filter=output.id:in:["
+		+ dataElementIds.join(",") + "]"));
 
 	//All predictors in the customObjects export
 	promises.push(saveObject("predictors", []));
 
 	Q.all(promises).then(function(results) {
 		addToMetdata("predictors", results[0]["predictors"]);
-		deferred.resolve(true);		
-	});	
+		deferred.resolve(true);
+	});
 	return deferred.promise;
 }
 
 
 function legendSets() {
-	
+
 	//LegendSets from applicable object types
-	var types = ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "dataSets", 
-			"dataElements", "indicators"], ids = [];
+	//added visualizations for 2.34
+	var types = ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "dataSets",
+		"dataElements", "indicators", "trackedEntityAttributes", "visualizations"], ids = [];
 	for (var k = 0; k < types.length; k++) {
 		for (var i = 0; metaData.hasOwnProperty(types[k]) && i < metaData[types[k]].length; i++) {
 			var obj = metaData[types[k]][i];
@@ -993,7 +1045,7 @@ function legendSets() {
 			}
 		}
 	}
-	
+
 	return saveObject("legendSets", ids);
 }
 
@@ -1021,14 +1073,14 @@ function userGroups() {
 			ids.push(group.id);
 		}
 	}
-	
+
 	return saveObject("userGroups", ids);
 }
 
 
 function customObjects() {
 	var deferred = Q.defer();
-	
+
 	var promises = [];
 	if (currentExport.hasOwnProperty("customObjects")) {
 		for (var obj of currentExport.customObjects) {
@@ -1062,18 +1114,18 @@ function setDefaultUid() {
 		if (!currentDefault) continue;
 
 		switch (types[k]) {
-		case "categoryOptions":
-			defaultDefault = "xYerKDKCefk";
-			break;
-		case "categories":
-			defaultDefault = "GLevLNI9wkl";
-			break;
-		case "categoryOptionCombos":
-			defaultDefault = "HllvX50cXC0";
-			break;
-		case "categoryCombos":
-			defaultDefault = "bjDvmb4bfuf";
-			break;
+			case "categoryOptions":
+				defaultDefault = "xYerKDKCefk";
+				break;
+			case "categories":
+				defaultDefault = "GLevLNI9wkl";
+				break;
+			case "categoryOptionCombos":
+				defaultDefault = "HllvX50cXC0";
+				break;
+			case "categoryCombos":
+				defaultDefault = "bjDvmb4bfuf";
+				break;
 		}
 
 		//search and replace metaData as text, to make sure customs forms are included
@@ -1105,7 +1157,7 @@ function clearOrgunitAssignment() {
 	for (var i = 0; metaData.hasOwnProperty("predictors") && i < metaData.predictors.length; i++) {
 		metaData.predictors[i].organisationUnitLevels = [];
 	}
-	
+
 }
 
 
@@ -1174,14 +1226,14 @@ function clearUserGroups() {
  */
 function configureSharing() {
 	for (var objectType in metaData) {
-		
+
 		//It not iterable or shareable, skip
 		if (!Array.isArray(metaData[objectType])) continue;
 		if (!shareable(objectType)) continue;
 
 		//For each object of objectType
 		for (var obj of metaData[objectType]) {
-		
+
 			//Set sharing
 			setSharing(objectType, obj);
 		}
@@ -1265,7 +1317,7 @@ function setSharing(objectType, object) {
 		if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
 		else accessString += "------";
 		object.publicAccess = accessString;
-	} 
+	}
 }
 
 
@@ -1297,7 +1349,7 @@ function dataShareable(metadataType) {
 */
 function configureOwnership() {
 	for (var objectType in metaData) {
-		
+
 		//It not iterable, skip
 		if (!Array.isArray(metaData[objectType])) continue;
 
@@ -1315,7 +1367,7 @@ function configureOwnership() {
 					};
 				}
 			}
-			if (currentExport.hasOwnProperty("_ownership") && obj.hasOwnProperty("lastUpdatedBy")) {	
+			if (currentExport.hasOwnProperty("_ownership") && obj.hasOwnProperty("lastUpdatedBy")) {
 				if (currentExport._ownership.modeLastUpdated == "REMOVE") {
 					delete obj.lastUpdatedBy;
 				}
@@ -1327,7 +1379,7 @@ function configureOwnership() {
 			}
 		}
 	}
-	
+
 }
 
 
@@ -1353,10 +1405,11 @@ function prefixCategoryOptionGroups() {
 /** VALIDATION FUNCTIONS **/
 
 //Check for hardcoded orgunits in favorites (mapViews, reportTables, charts), print warning
+//added visualizations for 2.34
 function validateFavoriteOrgunits() {
 
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			var nameableItem = (type == "mapViews") ? mapFromMapView(item.id) : item;
@@ -1386,14 +1439,14 @@ function validateFavoriteOrgunits() {
 			}
 		}
 	}
-	
+
 	if (issues.length > 0) {
 		console.log("\nERROR | Invalid orgunit parameters in favourites:");
-		
+
 		var printed = {};
 		for (var issue of issues) {
 			if (!printed[issue.id + issue.error]) {
-				console.log(issue.type + ": " + issue.id + " - '" + issue.name + 
+				console.log(issue.type + ": " + issue.id + " - '" + issue.name +
 					"': " + issue.error);
 				printed[issue.id + issue.error] = true;
 			}
@@ -1407,8 +1460,9 @@ function validateFavoriteOrgunits() {
 //Verify that only indicators are used in favourites
 function validateFavoriteDataItems() {
 	//Data elements from favorites
+	//added visualizations for 2.34
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			for (var dimItem of item.dataDimensionItems) {
@@ -1417,10 +1471,10 @@ function validateFavoriteDataItems() {
 
 
 					//Exception: custom objects we list, but don't stop the export
-					var abort = customObject(type, item.id) ? false : true;						
-					
+					var abort = customObject(type, item.id) ? false : true;
+
 					var nameableItem = (type == "mapViews") ? mapFromMapView(item.id) : item;
-						
+
 					issues.push({
 						"id": nameableItem.id,
 						"name": nameableItem.name,
@@ -1432,21 +1486,21 @@ function validateFavoriteDataItems() {
 			}
 		}
 	}
-	
-	if (issues.length > 0) {	
+
+	if (issues.length > 0) {
 		console.log("\nWARNING | Favourites not using indicators only:");
-		
+
 		abort = false;
 
 		var printed = {};
 		for (var issue of issues) {
 			abort = abort || issue.abort;
 			if (!printed[issue.id + issue.error]) {
-				console.log(issue.type + ": " + issue.id + " - '" + issue.name + 
+				console.log(issue.type + ": " + issue.id + " - '" + issue.name +
 					"': " + issue.error);
 				printed[issue.id + issue.error] = true;
 			}
-			
+
 		}
 		return !abort;
 	}
@@ -1456,18 +1510,19 @@ function validateFavoriteDataItems() {
 
 //Check that not unsupported (data element group sets, orgunit group sets, 
 //category) dimensions are used in favourites
+//added visualizations for 2.34
 function validateFavoriteDataDimension() {
-	
+
 	var issues = [];
-	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts"]) {
+	for (var type of ["charts", "mapViews", "reportTables", "eventReports", "eventCharts", "visualizations"]) {
 		for (var i = 0; metaData.hasOwnProperty(type) && i < metaData[type].length; i++) {
 			var item = metaData[type][i];
 			var nameableItem;
-			if (item.hasOwnProperty("dataElementGroupSetDimensions") 
-					&& item.dataElementGroupSetDimensions.length > 0) {
-				nameableItem = (type == "mapViews") ? 
+			if (item.hasOwnProperty("dataElementGroupSetDimensions")
+				&& item.dataElementGroupSetDimensions.length > 0) {
+				nameableItem = (type == "mapViews") ?
 					mapFromMapView(item.id) : item;
-				
+
 				issues.push({
 					"id": nameableItem.id,
 					"name": nameableItem.name,
@@ -1475,11 +1530,11 @@ function validateFavoriteDataDimension() {
 					"error": "dataElementGroupSet"
 				});
 			}
-			if (item.hasOwnProperty("organisationUnitGroupSetDimensions") 
-					&& item.organisationUnitGroupSetDimensions.length > 0) {
-				nameableItem = (type == "mapViews") ? 
+			if (item.hasOwnProperty("organisationUnitGroupSetDimensions")
+				&& item.organisationUnitGroupSetDimensions.length > 0) {
+				nameableItem = (type == "mapViews") ?
 					mapFromMapView(item.id) : item;
-				
+
 				issues.push({
 					"id": nameableItem.id,
 					"name": nameableItem.name,
@@ -1487,11 +1542,11 @@ function validateFavoriteDataDimension() {
 					"error": "organisationUnitGroupSet"
 				});
 			}
-			if (item.hasOwnProperty("categoryDimensions") 
-					&& item.categoryDimensions.length > 0) {
-				nameableItem = (type == "mapViews") ? 
+			if (item.hasOwnProperty("categoryDimensions")
+				&& item.categoryDimensions.length > 0) {
+				nameableItem = (type == "mapViews") ?
 					mapFromMapView(item.id) : item;
-				
+
 				issues.push({
 					"id": nameableItem.id,
 					"name": nameableItem.name,
@@ -1502,13 +1557,13 @@ function validateFavoriteDataDimension() {
 		}
 	}
 
-	if (issues.length > 0) {	
+	if (issues.length > 0) {
 		console.log("\nERROR | Favourites using unsupported data dimension:");
-		
+
 		var printed = {};
 		for (var issue of issues) {
 			if (!printed[issue.id + issue.error]) {
-				console.log(issue.type + ": " + issue.id + " - '" + issue.name + 
+				console.log(issue.type + ": " + issue.id + " - '" + issue.name +
 					"': " + issue.error);
 				printed[issue.id + issue.error] = true;
 			}
@@ -1528,57 +1583,57 @@ function validateDataElementReference() {
 	//Data elements/data sets from indicator formulas
 	var result;
 	if (metaData.indicators) {
-		
+
 		for (var i = 0; metaData.indicators && i < metaData.indicators.length; i++) {
-			result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator, 
+			result = utils.idsFromIndicatorFormula(metaData.indicators[i].numerator,
 				metaData.indicators[i].denominator, true);
-			
+
 			for (var j = 0; j < result.length; j++) {
 				ids[result[j]] = "indicator " + metaData.indicators[i].id;
 			}
 		}
 	}
-	
+
 	//Data elements/data sets from predictor formulas
 	for (var i = 0; metaData.predictors && i < metaData.predictors.length; i++) {
 		result = utils.idsFromFormula(
-			metaData.predictors[i].generator.expression, 
+			metaData.predictors[i].generator.expression,
 			true
 		);
-			
+
 		for (var j = 0; j < result.length; j++) {
 			ids[result[j]] = "predictor " + metaData.predictors[i].id;
 		}
 	}
-	
+
 	//Data elements/data sets from validation rule formulas
 	for (var i = 0; metaData.validationRules && i < metaData.validationRules.length; i++) {
 		result = utils.idsFromFormula(
-			metaData.validationRules[i].leftSide.expression, 
+			metaData.validationRules[i].leftSide.expression,
 			true
 		);
-			
+
 		for (var j = 0; j < result.length; j++) {
 			ids[result[j]] = "validationRule " + metaData.validationRules[i].id;
 		}
-		
+
 		result = utils.idsFromFormula(
-			metaData.validationRules[i].rightSide.expression, 
+			metaData.validationRules[i].rightSide.expression,
 			true
 		);
-			
+
 		for (var j = 0; j < result.length; j++) {
 			ids[result[j]] = "validationRule " + metaData.validationRules[i].id;
 		}
 	}
-	
+
 	var missing = [];
 	for (var id in ids) {
 		if (!objectExists("dataElements", id) && !objectExists("dataSets", id)) {
 			missing.push({"id": id, "type": ids[id]});
 		}
 	}
-	
+
 	if (missing.length > 0) {
 		console.log("\nERROR | Data elements/data sets referenced, but not included in export:");
 		for (var issue of missing) {
@@ -1600,9 +1655,9 @@ function validateProgramIndicatorReference() {
 	var result;
 	if (metaData.indicators) {
 		for (var i = 0; i < metaData.indicators.length; i++) {
-			result = utils.programIndicatorIdsFromIndicatorFormula(metaData.indicators[i].numerator, 
+			result = utils.programIndicatorIdsFromIndicatorFormula(metaData.indicators[i].numerator,
 				metaData.indicators[i].denominator);
-			
+
 			for (var j = 0; j < result.length; j++) {
 				ids[result[j]] = "indicator " + metaData.indicators[i].id;
 			}
@@ -1615,7 +1670,7 @@ function validateProgramIndicatorReference() {
 			result = utils.programIndicatorIdsFromFormula(
 				metaData.predictors[i].generator.expression
 			);
-			
+
 			for (var j = 0; j < result.length; j++) {
 				ids[result[j]] = "predictor " + metaData.predictors[i].id;
 			}
@@ -1628,7 +1683,7 @@ function validateProgramIndicatorReference() {
 			missing.push({"id": id, "type": ids[id]});
 		}
 	}
-	
+
 	if (missing.length > 0) {
 		console.log("\nERROR | Program indicators referenced, but not included in export:");
 		for (var issue of missing) {
@@ -1712,6 +1767,39 @@ function validateGroupReferences() {
 		}
 	}
 
+	//program indicator group membership
+	grouped = {};
+	for (var i = 0; metaData.programIndicatorGroups && i < metaData.programIndicatorGroups.length; i++) {
+		validMembers = [];
+		group = metaData.programIndicatorGroups[i];
+
+		for (var j = 0; j < group.programIndicators.length; j++) {
+			item = group.programIndicators[j];
+			found = false;
+			for (var k = 0; !found && metaData.programIndicators && k < metaData.programIndicators.length; k++) {
+				if (item.id === metaData.programIndicators[k].id) {
+					found = true;
+				}
+			}
+
+			if (found) {
+				validMembers.push(item);
+				grouped[item.id] = true;
+			}
+		}
+		metaData.programIndicatorGroups[i].programIndicators = validMembers;
+		delete metaData.programIndicatorGroups[i].programIndicatorGroupSet;
+	}
+
+	for (var i = 0; metaData.programIndicators && i < metaData.programIndicators.length; i++) {
+		if (!grouped.hasOwnProperty(metaData.programIndicators[i].id)) {
+			unGrouped.push({
+				"id": metaData.programIndicators[i].id,
+				"name": metaData.programIndicators[i].shortName,
+				"type": "programIndicators"
+			});
+		}
+	}
 
 	//catetory option group membership
 	for (var i = 0; metaData.hasOwnProperty("categoryOptionGroups") && i < metaData.categoryOptionGroups.length; i++) {
@@ -1728,11 +1816,11 @@ function validateGroupReferences() {
 		metaData.categoryOptionGroups[i].categoryOptions = validOptions;
 	}
 
-	
+
 	if (unGrouped.length > 0) {
 		console.log("\nERROR | Data elements/indicators referenced, but not in any groups:");
 		for (var issue of unGrouped) {
-			console.log(issue.type + " - " + issue.id + " - " 
+			console.log(issue.type + " - " + issue.id + " - "
 				+ issue.name);
 		}
 	}
@@ -1742,7 +1830,7 @@ function validateGroupReferences() {
 
 function validationDataSetSections() {
 	if (!metaData.dataSets || !metaData.sections) return true;
-	
+
 	var issues = [];
 	for (var ds of metaData.dataSets) {
 
@@ -1760,7 +1848,7 @@ function validationDataSetSections() {
 				}
 			}
 		}
-				
+
 		if (hasSections) {
 			for (var id in dataElements) {
 				issues.push({
@@ -1770,7 +1858,7 @@ function validationDataSetSections() {
 			}
 		}
 	}
-	
+
 	if (issues.length > 0) {
 		console.log("\nERROR | Data elements in data set, but not sections:");
 		for (var issue of issues) {
@@ -1801,18 +1889,18 @@ function addToMetdata(type, objects) {
 			metaData[type].push(obj);
 		}
 	}
-	
+
 }
 
 
 //Check if object of given type and with given id exists in the metadata export
 function objectExists(type, id) {
 	if (!metaData.hasOwnProperty(type)) return false;
-	
+
 	for (var obj of metaData[type]) {
 		if (obj && obj.hasOwnProperty("id") && obj.id === id) return true;
 	}
-	
+
 	return false;
 }
 
@@ -1820,7 +1908,7 @@ function objectExists(type, id) {
 //Get map from mapview
 function mapFromMapView(mapViewId) {
 	for (var map of metaData.maps) {
-	
+
 		for (var mv of map.mapViews) {
 			if (mv.id === mapViewId) return map;
 		}
@@ -1833,7 +1921,7 @@ function mapFromMapView(mapViewId) {
 function customObjectIds(objType) {
 	customObjectsExported[objType] = true;
 	if (!currentExport.hasOwnProperty("customObjects")) return [];
-	
+
 	for (var obj of currentExport.customObjects) {
 		if (obj.objectType == objType) {
 			return obj.objectIds;
@@ -1846,7 +1934,7 @@ function customObjectIds(objType) {
 function customObject(objType, objId) {
 	customObjectsExported[objType] = true;
 	if (!currentExport.hasOwnProperty("customObjects")) return false;
-	
+
 	for (var obj of currentExport.customObjects) {
 		if (obj.objectType == objType) {
 			for (var id of obj.objectIds) {
@@ -1862,18 +1950,18 @@ function customObject(objType, objId) {
 function packageLabel() {
 	var type = "";
 	switch (currentExport._type) {
-	case "completeAggregate": 
-		type = "COMPLETE";
-		break;
-	case "custom": 
-		type = "CUSTOM";
-		break;
-	case "dashboardAggregate":
-		type = "DASHBOARD";
-		break;
-	case "tracker":
-		type = "TRACKER";
-		break;
+		case "completeAggregate":
+			type = "COMPLETE";
+			break;
+		case "custom":
+			type = "CUSTOM";
+			break;
+		case "dashboardAggregate":
+			type = "DASHBOARD";
+			break;
+		case "tracker":
+			type = "TRACKER";
+			break;
 	}
 
 	var version = dhis2version.length > 4 ? dhis2version.substr(0, 4) : dhis2version;
@@ -1882,51 +1970,61 @@ function packageLabel() {
 	identifier += "_" + type;
 	identifier += "_V" + currentExport._version;
 	identifier += "_DHIS" + version;
-	
+
 	return identifier;
-	
+
 }
 
 
 //Make folder
 function makeFolder() {
-
+	
 	if (!fs.existsSync(currentExport._basePath)) {
 		// Do something
 		console.log("Given basePath does not exist, cannot save export: " + currentExport._basePath);
 		return false;
 	}
-
+	
 	var path = currentExport._basePath + "/" + currentExport._code;
 	var version = dhis2version.length > 4 ? dhis2version.substr(0, 4) : dhis2version;
 
 	var type = "";
 	switch (currentExport._type) {
-	case "completeAggregate": 
-		type = "COMPLETE";
-		break;
-	case "custom": 
-		type = "CUSTOM";
-		break;
-	case "dashboardAggregate":
-		type = "DASHBOARD";
-		break;
-	case "tracker":
-		type = "TRACKER";
-		break;
+		case "completeAggregate":
+			type = "COMPLETE";
+			break;
+		case "custom":
+			type = "CUSTOM";
+			break;
+		case "dashboardAggregate":
+			type = "DASHBOARD";
+			break;
+		case "tracker":
+			type = "TRACKER";
+			break;
 	}
 	path += "_" + type;
 	path += "_V" + currentExport._version.substr(0,1); //Only major version
 	path += "_DHIS" + version;
-	
+
 	try {
 		fs.mkdirSync(path);
-	} 
+	}
 	catch (err) {
 		if (err.code !== "EEXIST") {
 			throw err;
 		}
 	}
-	
+
 	return path;
+}
+
+function removeDuplicateObjects() {
+	//Remove programStageDataElements and programTrackedEntityAttributes from root level of metadata
+	if (metaData.hasOwnProperty("programStageDataElements") && metaData.programStageDataElements.length > 0) {
+		delete metaData.programStageDataElements;
+	}
+	if (metaData.hasOwnProperty("programTrackedEntityAttributes") && metaData.programTrackedEntityAttributes.length > 0) {
+		delete metaData.programTrackedEntityAttributes;
+	}
 }

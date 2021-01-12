@@ -70,6 +70,7 @@ The export script relies on a configuration file in .json format. The configurat
 | exportDataSetIds | List with UIDs of data sets for which dependencies will be included in the package, *but not the data set itself*. |
 | exportIndicatorGroupsIds | List with UIDs of indicator groups for which indicators will be included in the package, *but not the group itself* |
 | indicatorGroupIds | List with UIDs of indicator groups that will be included in the package. Indicators in the groups are not included, and reference to any data element that is not part of the package will be removed. |
+| programIndicatorGroupIds | List with UIDs of indicator groups that will be included in the package. Program indicators in the groups are not included. |
 | validationRuleGroupIds | List with UIDs of validation rule groups to include in the package, including validation rules in those groups. |
 
 
