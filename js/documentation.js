@@ -657,6 +657,36 @@ function makeReferenceList(basePath, metaData) {
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
+	//predictorGroups
+	if (metaData.predictorGroups && metaData.predictorGroups.length > 0) {
+		referenced["predictorGroups"] = true;
+		toc.push({"id": "predictorGroups", "name": "Predictor Groups"});
+
+		content += utils.htmlHeader("Predictor Groups", 2, "predictorGroups");
+		tab = [["Name", "Last updated", "UID", "Predictors"]];
+
+		for (let i = 0; i < metaData.predictorGroups.length; i++) {
+			let predictorGroup = metaData.predictorGroups[i];
+
+			let predictors = [];
+			for (let j = 0; j < predictorGroup.predictors.length; j++) {
+				for (let k = 0; k < metaData.predictors.length; k++) {
+					if (predictorGroup.predictors[j].id == metaData.predictors[k].id) predictors.push(metaData.predictors[k].name);
+				}
+			}
+			let predictorText;
+			if (predictors.length > 20) {
+				let notShown = predictors.length - 20;
+				predictors.splice(20);
+				predictors.push("another " + notShown + " predictors not shown.");
+			}
+			predictorText = predictors.join("; ");
+			tab.push([predictorGroup.name, predictorGroup.lastUpdated.substr(0, 10), predictorGroup.id, predictorText])
+		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "predictorGroups");
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
 	//predictors
 	if (metaData.predictors && metaData.predictors.length > 0) {
 		referenced["predictors"] = true;
