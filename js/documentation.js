@@ -512,6 +512,44 @@ function makeReferenceList(basePath, metaData) {
 		content += utils.htmlTableFromArray(tab, true);
 	}
 
+	//optionGroups
+	if (metaData.optionGroups && metaData.optionGroups.length > 0) {
+		referenced["optionGroups"] = true;
+		toc.push({"id": "optionGroups", "name": "Option Groups"});
+
+		content += utils.htmlHeader("Option Groups", 2, "optionGroups");
+		tab = [["Name", "Last updated", "UID", "Option Set", "Options"]];
+
+		let optionGroup;
+		for (let i = 0; i < metaData.optionGroups.length; i++) {
+			optionGroup = metaData.optionGroups[i];
+
+			let optionSetName;
+			for (let j = 0; j < metaData.optionSets.length; j++) {
+				if (optionGroup.optionSet.id == metaData.optionSets[j].id) optionSetName = metaData.optionSets[j].name;
+			}
+
+			let options = [];
+			for (let j = 0; j < optionGroup.options.length; j++) {
+
+				for (let k = 0; k < metaData.options.length; k++) {
+					if (optionGroup.options[j].id == metaData.options[k].id) options.push(metaData.options[k].name);
+				}
+			}
+			let optionText;
+			if (options.length > 20) {
+				let notShown = options.length - 20;
+				options.splice(20);
+				options.push("another " + notShown + " options not shown.");
+			}
+			optionText = options.join("; ");
+
+			tab.push([optionGroup.name, optionGroup.lastUpdated.substr(0,10), optionGroup.id, (optionSetName ? optionSetName : ""), optionText])
+		}
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "optionGroups");
+		content += utils.htmlTableFromArray(tab, true);
+	}
+
 	//optionSets
 	if (metaData.optionSets && metaData.optionSets.length > 0) {
 		referenced["optionSets"] = true;
