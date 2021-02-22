@@ -144,7 +144,7 @@ function makeReferenceList(basePath, metaData) {
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.section, row.dataElement]);
-					xlDataSetSectTab.push([sec.name, row.section, row.sectionId, row.dataElement, row.dataElementId]);
+					xlDataSetSectTab.push([sec.name, (row.section ? row.section : "Missing") , (row.sectionId ? row.sectionId : "Missing"), row.dataElement, (row.dataElementId ? row.dataElementId : "Missing")]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
 			}
