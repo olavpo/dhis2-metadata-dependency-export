@@ -872,7 +872,7 @@ function makeReferenceList(basePath, metaData) {
 					}
 				}
 				var type, name, id;
-				if (dbi.chart) {
+				if (dbi.chart && metaData.charts) {
 					type = "Chart";
 					for (var k = 0; k < metaData.charts.length; k++) {
 						if (dbi.chart.id === metaData.charts[k].id) {
@@ -882,7 +882,7 @@ function makeReferenceList(basePath, metaData) {
 						}
 					}
 				}
-				else if (dbi.map) {
+				else if (dbi.map && metaData.reportTables) {
 					type = "Map";
 					for (var k = 0; k < metaData.maps.length; k++) {
 						if (dbi.map.id === metaData.maps[k].id) {
@@ -892,7 +892,7 @@ function makeReferenceList(basePath, metaData) {
 						}
 					}
 				}
-				else if (dbi.reportTable) {
+				else if (dbi.reportTable && metaData.reportTables) {
 					type = "Pivot table";
 					for (var k = 0; k < metaData.reportTables.length; k++) {
 						if (dbi.reportTable.id === metaData.reportTables[k].id) {
@@ -923,11 +923,12 @@ function makeReferenceList(basePath, metaData) {
 					}
 				}
 				else if (dbi.visualization) {
-					type = "visualizations";
+					//type = "visualizations";
 					for (let k = 0; k < metaData.visualizations.length; k++) {
 						if (dbi.visualization.id === metaData.visualizations[k].id) {
 							name = metaData.visualizations[k].name;
 							id = metaData.visualizations[k].id;
+							type = (metaData.visualizations[k].type ? metaData.visualizations[k].type : "visualizations");
 						}
 					}
 					//name = getName(dbi.visualization.id, metaData);
