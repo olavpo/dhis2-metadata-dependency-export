@@ -414,6 +414,11 @@ function sheetFromTable(aoa, header) {
         for (let C = range.s.c; C <= range.e.c; C++) {
 			let cell = sheet[XLSXs.utils.encode_cell({c:C, r:R})];
 
+			if (cell == undefined) {
+				console.log('cell is undefined');
+				continue;
+			}
+
 			if (header && R == 0) {
 				cell.s = {font: {bold: true}};
 				cell.s.fill = {fgColor: {rgb: "a5a5e2"}};
