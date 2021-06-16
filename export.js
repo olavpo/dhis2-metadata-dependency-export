@@ -1377,6 +1377,15 @@ function configureOwnership() {
 					};
 				}
 			}
+			if (currentExport.hasOwnProperty("_ownership") && obj.hasOwnProperty("createdBy")) {
+				if (currentExport._ownership.modeCreatedBy == "REMOVE") {
+					delete obj.createdBy;
+				} else if (currentExport._ownership.modeCreatedBy == "OVERWRITE") {
+					obj.createdBy = {
+						"id": currentExport._ownership.ownerId
+					}
+				}
+			}
 		}
 	}
 

@@ -76,15 +76,16 @@ The export script relies on a configuration file in .json format. The configurat
 
 **Ownership**
 
-The *ownership* property allows modification of the "user" (owner) and "lastUpdatedBy" properties of metadata in the package.
+The *ownership* property allows modification of the "user" (owner) "createdBy" and "lastUpdatedBy" properties of metadata in the package.
 ```
 {
   "modeOwner": "OVERWRITE",
   "modeLastUpdated": "REMOVE",
+  "modeCreatedBy": "IGNORE"
   "ownerId": "vUeLeQMSwhN"
 }
 ```
-`modeOwner/modeLastUpdated` can be one of the following:
+`modeOwner/modeCreatedBy/modeLastUpdated` can be one of the following:
 
 * "IGNORE" - leave as-is.
 * "REMOVE" - remove.
