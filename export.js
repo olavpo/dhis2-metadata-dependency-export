@@ -23,10 +23,12 @@ var exporting = false;
 var dhis2schema;
 var dhis2version;
 
+/*
 process.on("uncaughtException", function (err) {
 	console.log("Caught exception: ");
 	console.log(err);
 });
+*/
 
 //If launched with -r argument, run reference generator on specified metadata file
 if (args.r) {
@@ -1300,9 +1302,15 @@ function setAccesses(mode, configAccesses, dataShareable, currentAccesses) {
 
 }
 
-function setSharingObject(sharingConfig, ownershipConfig, datasharing, publicAccess, currentSharingObj, currentExternalAccess) {
+function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSharingObj, currentExternalAccess) {
 	let sharingObj = currentSharingObj ? currentSharingObj : {};
 	sharingObj.external = currentExternalAccess ? true : false;
+
+	//"public"
+	if (sharingConfig.publicAccess) {
+		let accessString = sharingString(sharingConfig.publicAccess.metadata) + sharingString(sharingConfig.publicAccess.data) + "----";
+		sharingObj.public = accessString;
+	}
 	
 	//"owner"
 	if (ownershipConfig.modeOwner == "OVERWRITE" && ownershipConfig.ownerId) {
@@ -1313,16 +1321,16 @@ function setSharingObject(sharingConfig, ownershipConfig, datasharing, publicAcc
 	if (sharingConfig.userMode) {
 		switch (String.prototype.toUpperCase.call(sharingConfig.userMode)) {
 
-			case REMOVE:
+			case "REMOVE":
 				sharingObj.users = {};
 				break;
 
-			case OVERWRITE:
+			case "OVERWRITE":
 				sharingObj.users = {};
 				for (usr of sharingConfig.users) {
 
 					let accessString = sharingString(usr.metadata);
-					if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
+					if (dataSharing) accessString += sharingString(usr.data) + "----";
 					else accessString += "------";
 					sharingObj.users[usr.id] = {
 						access: accessString,
@@ -1331,7 +1339,7 @@ function setSharingObject(sharingConfig, ownershipConfig, datasharing, publicAcc
 				};
 				break;
 			
-			case FILTER:
+			case "FILTER":
 				sharingObj.users = currentSharingObj ? currentSharingObj.users : {};
 				let confUsers = sharingConfig.users.map(usr => { return usr.id });
 				for (usr in sharingObj.users) {
@@ -1341,7 +1349,7 @@ function setSharingObject(sharingConfig, ownershipConfig, datasharing, publicAcc
 				};
 				break;
 				
-			case IGNORE:
+			case "IGNORE":
 				//wat?
 				break;		
 		};
@@ -1351,35 +1359,35 @@ function setSharingObject(sharingConfig, ownershipConfig, datasharing, publicAcc
 	if (sharingConfig.groupMode) {
 		switch (String.prototype.toUpperCase.call(sharingConfig.groupMode)) {
 
-			case REMOVE:
-				sharingObj.groups = {};
+			case "REMOVE":
+				sharingObj.userGroups = {};
 				break;
 
-			case OVERWRITE:
-				sharingObj.groups = {};
-				for (usr of sharingConfig.groups) {
+			case "OVERWRITE":
+				sharingObj.userGroups = {};
+				for (let grp of sharingConfig.groups) {
 
-					let accessString = sharingString(usr.metadata);
-					if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
+					let accessString = sharingString(grp.metadata);
+					if (dataSharing) accessString += sharingString(grp.data) + "----";
 					else accessString += "------";
-					sharingObj.groups[usr.id] = {
+					sharingObj.userGroups[grp.id] = {
 						access: accessString,
-						id: usr.id
+						id: grp.id
 					};
 				};
 				break;
 			
-			case FILTER:
-				sharingObj.groups = currentSharingObj ? currentSharingObj.groups : {};
-				let confUsers = sharingConfig.groups.map(usr => { return usr.id });
-				for (usr in sharingObj.groups) {
-					if (!confUsers.includes(usr)) {
-						delete sharingObj.groups[usr];
+			case "FILTER":
+				sharingObj.userGroups = currentSharingObj ? currentSharingObj.groups : {};
+				let confGrps = sharingConfig.groups.map(usr => { return usr.id });
+				for (let grp in sharingObj.userGroups) {
+					if (!confGrps.includes(grp)) {
+						delete sharingObj.userGroups[grp];
 					};
 				};
 				break;
 				
-			case IGNORE:
+			case "IGNORE":
 				//wat?
 				break;		
 		};
@@ -1399,7 +1407,7 @@ function setSharing(objectType, object) {
 	object.userGroupAccesses = setAccesses(conf.groupMode, conf.groups, dataSharing, object.userGroupAccesses);
 
 	//DHIS2 v2.36+ sharing object
-	object.sharing = setSharingObject(conf, currentExport._ownership, dataSharing, conf.publicAccess ? conf.publicAccess : undefined, object.sharing ? object.sharing : undefined, object.externalAccess ? object.externalAccess : undefined);
+	object.sharing = setSharingObject(conf, currentExport._ownership, dataSharing, object.sharing ? object.sharing : undefined, object.externalAccess ? object.externalAccess : undefined);
 
 	//Public access
 	if (conf.hasOwnProperty("publicAccess")) {
