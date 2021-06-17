@@ -1347,6 +1347,44 @@ function setSharingObject(sharingConfig, ownershipConfig, datasharing, publicAcc
 		};
 	};
 
+	//"groups"
+	if (sharingConfig.groupMode) {
+		switch (String.prototype.toUpperCase.call(sharingConfig.groupMode)) {
+
+			case REMOVE:
+				sharingObj.groups = {};
+				break;
+
+			case OVERWRITE:
+				sharingObj.groups = {};
+				for (usr of sharingConfig.groups) {
+
+					let accessString = sharingString(usr.metadata);
+					if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
+					else accessString += "------";
+					sharingObj.groups[usr.id] = {
+						access: accessString,
+						id: usr.id
+					};
+				};
+				break;
+			
+			case FILTER:
+				sharingObj.groups = currentSharingObj ? currentSharingObj.groups : {};
+				let confUsers = sharingConfig.groups.map(usr => { return usr.id });
+				for (usr in sharingObj.groups) {
+					if (!confUsers.includes(usr)) {
+						delete sharingObj.groups[usr];
+					};
+				};
+				break;
+				
+			case IGNORE:
+				//wat?
+				break;		
+		};
+	};
+
 	return sharingObj;
 }
 
