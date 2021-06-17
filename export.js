@@ -1300,6 +1300,55 @@ function setAccesses(mode, configAccesses, dataShareable, currentAccesses) {
 
 }
 
+function setSharingObject(sharingConfig, ownershipConfig, datasharing, publicAccess, currentSharingObj, currentExternalAccess) {
+	let sharingObj = currentSharingObj ? currentSharingObj : {};
+	sharingObj.external = currentExternalAccess ? true : false;
+	
+	//"owner"
+	if (ownershipConfig.modeOwner == "OVERWRITE" && ownershipConfig.ownerId) {
+		sharingObj.owner = ownershipConfig.ownerId;
+	}
+
+	//"users"
+	if (sharingConfig.userMode) {
+		switch (String.prototype.toUpperCase.call(sharingConfig.userMode)) {
+
+			case REMOVE:
+				sharingObj.users = {};
+				break;
+
+			case OVERWRITE:
+				sharingObj.users = {};
+				for (usr of sharingConfig.users) {
+
+					let accessString = sharingString(usr.metadata);
+					if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
+					else accessString += "------";
+					sharingObj.users[usr.id] = {
+						access: accessString,
+						id: usr.id
+					};
+				};
+				break;
+			
+			case FILTER:
+				sharingObj.users = currentSharingObj ? currentSharingObj.users : {};
+				let confUsers = sharingConfig.users.map(usr => { return usr.id });
+				for (usr in sharingObj.users) {
+					if (!confUsers.includes(usr)) {
+						delete sharingObj.users[usr];
+					};
+				};
+				break;
+				
+			case IGNORE:
+				//wat?
+				break;		
+		};
+	};
+
+	return sharingObj;
+}
 
 function setSharing(objectType, object) {
 	var dataSharing = dataShareable(objectType);
@@ -1310,6 +1359,9 @@ function setSharing(objectType, object) {
 
 	//User group sharing
 	object.userGroupAccesses = setAccesses(conf.groupMode, conf.groups, dataSharing, object.userGroupAccesses);
+
+	//DHIS2 v2.36+ sharing object
+	object.sharing = setSharingObject(conf, currentExport._ownership, dataSharing, conf.publicAccess ? conf.publicAccess : undefined, object.sharing ? object.sharing : undefined, object.externalAccess ? object.externalAccess : undefined);
 
 	//Public access
 	if (conf.hasOwnProperty("publicAccess")) {
