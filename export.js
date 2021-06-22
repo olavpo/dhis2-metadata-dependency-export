@@ -2221,6 +2221,8 @@ function removeNameFromPTEA() {
 			if (prog.hasOwnProperty('programTrackedEntityAttributes')) {
 				for (ptea of prog.programTrackedEntityAttributes) {
 					if (ptea.name) delete ptea.name;
+					if (ptea.displayName) delete ptea.displayName;
+					if (ptea.displayShortName) delete ptea.displayShortName;
 				}
 			}
 		}
