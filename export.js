@@ -23,12 +23,12 @@ var exporting = false;
 var dhis2schema;
 var dhis2version;
 
-/*
+
 process.on("uncaughtException", function (err) {
 	console.log("Caught exception: ");
 	console.log(err);
 });
-*/
+
 
 //If launched with -r argument, run reference generator on specified metadata file
 if (args.r) {
@@ -36,14 +36,14 @@ if (args.r) {
 	metaData = JSON.parse(fs.readFileSync(args.r, "utf8"));
 
 	Q.fcall(doc.makeReferenceList('./', metaData))
-	.then(function (res) {
-		if (!res) {
-			console.log('Something went wrong in makeReferenceList()');
-		}
-	});
-	
+		.then(function (res) {
+			if (!res) {
+				console.log('Something went wrong in makeReferenceList()');
+			}
+		});
+
 } else {
-run();
+	run();
 }
 
 /**
@@ -180,6 +180,7 @@ function connectAndExport(username,password) {
 	d2.get("/api/system/info.json").then(function(result) {
 		console.log("\nConnected to instance: " + result.systemName);
 
+		currentExport._system = result;
 		lastUrl = currentExport.url;
 		dhis2version = result.version;
 
@@ -280,6 +281,10 @@ function processDashboard() {
 	if (debug) {
 		fs.writeFileSync('.\\debug.json', JSON.stringify(metaData));
 	}
+
+	//Remove undesired properties from objects
+	removeProperties();
+	removeNameFromPTEA();
 
 	//Remove current configuration of indicators and cateogry option groups
 	clearIndicatorFormulas();
@@ -467,7 +472,11 @@ function processAggregate() {
 	if (debug) {
 		fs.writeFileSync('.\\debug.json', JSON.stringify(metaData));
 	}
-	
+
+	//Remove undesired properties from objects
+	removeProperties();
+	removeNameFromPTEA();
+
 	//Configure sharing and metadata ownership
 	configureSharing();
 	configureOwnership();
@@ -657,10 +666,14 @@ function processTracker() {
 		fs.writeFileSync('.\\debug.json', JSON.stringify(metaData));
 	}
 
+	//Remove undesired properties from objects
+	removeProperties();
+	removeNameFromPTEA();
+
 	//Reset/remove lat/long/zoom on maps
 	clearMapZoom();
 	clearMapViews();
-	
+
 	//Configure sharing and metadata ownership
 	configureSharing();
 	configureOwnership();
@@ -1311,7 +1324,7 @@ function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSh
 		let accessString = sharingString(sharingConfig.publicAccess.metadata) + sharingString(sharingConfig.publicAccess.data) + "----";
 		sharingObj.public = accessString;
 	}
-	
+
 	//"owner"
 	if (ownershipConfig.modeOwner == "OVERWRITE" && ownershipConfig.ownerId) {
 		sharingObj.owner = ownershipConfig.ownerId;
@@ -1338,7 +1351,7 @@ function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSh
 					};
 				};
 				break;
-			
+
 			case "FILTER":
 				sharingObj.users = currentSharingObj ? currentSharingObj.users : {};
 				let confUsers = sharingConfig.users.map(usr => { return usr.id });
@@ -1348,10 +1361,10 @@ function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSh
 					};
 				};
 				break;
-				
+
 			case "IGNORE":
 				//wat?
-				break;		
+				break;
 		};
 	};
 
@@ -1376,7 +1389,7 @@ function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSh
 					};
 				};
 				break;
-			
+
 			case "FILTER":
 				sharingObj.userGroups = currentSharingObj ? currentSharingObj.groups : {};
 				let confGrps = sharingConfig.groups.map(usr => { return usr.id });
@@ -1386,10 +1399,10 @@ function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSh
 					};
 				};
 				break;
-				
+
 			case "IGNORE":
 				//wat?
-				break;		
+				break;
 		};
 	};
 
@@ -2082,16 +2095,46 @@ function packageLabel() {
 
 }
 
+//Get package object - package label replacement
+function packageObject() {
+	var type = "";
+	switch (currentExport._type) {
+		case "completeAggregate":
+			type = "AGGREGATE";
+			break;
+		case "custom":
+			type = "CUSTOM";
+			break;
+		case "dashboardAggregate":
+			type = "DASHBOARD";
+			break;
+		case "tracker":
+			type = "TRACKER";
+			break;
+	}
+	let locale = 'en';
+
+	return packageObj = {
+		DHIS2Build: currentExport._system.revision,
+		DHIS2Version: currentExport._system.version,
+		code: currentExport._code,
+		lastUpdated: utils.getLastUpdated(metaData),
+		locale: locale,
+		name: `${currentExport._code}_${type}_V${currentExport._version}_${currentExport._system.version}-${locale}`,
+		type: type,
+		version: currentExport._version
+	};
+}
 
 //Make folder
 function makeFolder() {
-	
+
 	if (!fs.existsSync(currentExport._basePath)) {
 		// Do something
 		console.log("Given basePath does not exist, cannot save export: " + currentExport._basePath);
 		return false;
 	}
-	
+
 	var path = currentExport._basePath + "/" + currentExport._code;
 	var version = dhis2version.length > 4 ? dhis2version.substr(0, 4) : dhis2version;
 
@@ -2133,5 +2176,41 @@ function removeDuplicateObjects() {
 	}
 	if (metaData.hasOwnProperty("programTrackedEntityAttributes") && metaData.programTrackedEntityAttributes.length > 0) {
 		delete metaData.programTrackedEntityAttributes;
+	}
+}
+
+function removeProperties() {
+	//Remove unwanted properties from all metadata objects
+	let propsToRemove = [
+		"displayName",
+		"displayShortName",
+		"displayFormName",
+		"displayDescription",
+		"displayNumeratorDescription",
+		"displayDenominatorDescription"
+	];
+
+	for (type in metaData) {
+		for (obj of metaData[type]) {
+			for (prop of propsToRemove) {
+				if (obj.hasOwnProperty(prop)) {
+					delete obj[prop];
+				}
+			}
+		}
+	}
+}
+
+function removeNameFromPTEA() {
+	if (metaData.programs && metaData.programs.length > 0) {
+
+		for (prog of metaData.programs) {
+			if (prog.hasOwnProperty('programTrackedEntityAttributes')) {
+				for (ptea of prog.programTrackedEntityAttributes) {
+					if (ptea.name) delete ptea.name;
+				}
+			}
+		}
+		return programs;
 	}
 }
