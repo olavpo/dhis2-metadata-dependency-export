@@ -376,7 +376,8 @@ function saveDashboard() {
 	}
 
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
+	// Old package identifier: metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
+	metaData["package"] = packageObject();
 
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
@@ -566,7 +567,8 @@ function saveAggregate() {
 	}
 
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
+	// Old package identifier: metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
+	metaData["package"] = packageObject();
 
 
 	//Save metadata to json file and documentation to markdown files
@@ -779,8 +781,8 @@ function saveTracker() {
 
 
 	//Add "ID" - package identifier + date
-	metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
-
+	// Old package identifier: metaData["package"] = packageLabel() + "_" + new Date().toISOString().substr(0, 16);
+	metaData["package"] = packageObject();
 
 	//Save metadata to json file and documentation to markdown files
 	Q.all([
