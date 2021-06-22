@@ -15,6 +15,7 @@ var utils = require("./js/utils.js");
 var debug = args.debug ? true : false;
 var metaData;
 var exportQueue = [];
+var lastSystem;
 var lastUrl = "";
 var currentExport;
 var customObjectsExported = {};
@@ -136,7 +137,10 @@ function nextExport() {
 	}
 
 	//If next export is a new URL, ask for username and password. Else start export directly
-	if (currentExport.url == lastUrl) startExport();
+	if (currentExport.url == lastUrl) {
+		currentExport._system = lastSystem;
+		startExport();
+	}
 	else connectNewInstance();
 
 }
@@ -181,6 +185,7 @@ function connectAndExport(username,password) {
 		console.log("\nConnected to instance: " + result.systemName);
 
 		currentExport._system = result;
+		lastSystem = result;
 		lastUrl = currentExport.url;
 		dhis2version = result.version;
 
@@ -644,6 +649,10 @@ function exportTracker() {
 
 				processTracker();
 
+			})
+			.catch(function (err) {
+				console.error('An error occured in processTracker():');
+				console.error(err);
 			});
 
 		});
@@ -2116,7 +2125,7 @@ function packageObject() {
 	}
 	let locale = 'en';
 
-	return packageObj = {
+	return {
 		DHIS2Build: currentExport._system.revision,
 		DHIS2Version: currentExport._system.version,
 		code: currentExport._code,
@@ -2192,6 +2201,7 @@ function removeProperties() {
 		"displayDenominatorDescription"
 	];
 
+	let type, obj, prop;
 	for (type in metaData) {
 		for (obj of metaData[type]) {
 			for (prop of propsToRemove) {
@@ -2206,6 +2216,7 @@ function removeProperties() {
 function removeNameFromPTEA() {
 	if (metaData.programs && metaData.programs.length > 0) {
 
+		let prog, ptea;
 		for (prog of metaData.programs) {
 			if (prog.hasOwnProperty('programTrackedEntityAttributes')) {
 				for (ptea of prog.programTrackedEntityAttributes) {
@@ -2213,6 +2224,5 @@ function removeNameFromPTEA() {
 				}
 			}
 		}
-		return programs;
 	}
 }

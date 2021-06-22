@@ -31,22 +31,34 @@ function makeReferenceList(basePath, metaData) {
 	content += utils.htmlHeader("Metadata reference", 1);
 	content += "TOCPLACEHOLDER";
 
-	content += utils.htmlHeader("Package info", 2);
-	var parts = metaData.package.split("_");
-	tab.push(["Property", "Value"]);
-	tab.push(["Code", parts[0]]);
-	tab.push(["Type", parts[1]]);
-	tab.push(["Version", parts[2]]);
-	tab.push(["DHIS2 version", parts[3]]);
-	tab.push(["Created", parts[4]]);
-	tab.push(["Identifier", metaData.package]);
-	content += utils.htmlTableFromArrayVertical(tab);
+	if (metaData.package) {
 
-	referenced["package"] = true;
-	toc.push({ "id": "package", "name": "Package ID" });
-
-	utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "Package info");
-
+		content += utils.htmlHeader("Package info", 2);
+		tab.push(["Property", "Value"]);
+		if (typeof metaData.package == 'string') {
+			var parts = metaData.package.split("_");
+			tab.push(["Code", parts[0]]);
+			tab.push(["Type", parts[1]]);
+			tab.push(["Version", parts[2]]);
+			tab.push(["DHIS2 version", parts[3]]);
+			tab.push(["Created", parts[4]]);
+			tab.push(["Identifier", metaData.package]);
+		} else if (typeof metaData.package == 'object') {
+			tab.push(["Code", metaData.package.code]);
+			tab.push(["Type", metaData.package.type]);
+			tab.push(["Version", metaData.package.version]);
+			tab.push(["DHIS2 version", metaData.package.DHIS2Version]);
+			tab.push(["DHIS2 build", metaData.package.DHIS2Build]);
+			tab.push(["Last updated", metaData.package.lastUpdated]);
+			tab.push(["Name", metaData.package.name]);
+		}
+		content += utils.htmlTableFromArrayVertical(tab);
+		
+		referenced["package"] = true;
+		toc.push({ "id": "package", "name": "Package ID" });
+		
+		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "Package info");
+	}
 
 
 	//tracked entity types

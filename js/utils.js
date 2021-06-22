@@ -465,7 +465,7 @@ function saveWorkbook(book, file) {
 }
 
 function getLastUpdated(metadata) {
-    let dates = {};
+    let dates = {}, type, obj;
     for (type in metadata) {
         for (obj of metadata[type]) {
             if (obj.hasOwnProperty('id') && obj.hasOwnProperty('lastUpdated')) {
