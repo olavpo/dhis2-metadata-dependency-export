@@ -30,6 +30,7 @@ module.exports.sheetFromTable = sheetFromTable;
 module.exports.createWorkbook = createWorkbook;
 module.exports.appendWorksheet = appendWorksheet;
 module.exports.saveWorkbook = saveWorkbook;
+module.exports.getLastUpdated = getLastUpdated;
 
 function saveFileJson(fileName, jsonContent) {
 	var deferred = Q.defer();
@@ -461,4 +462,21 @@ function appendWorksheet(sheet, book, name) {
 
 function saveWorkbook(book, file) {
 	XLSXs.writeFile(book, file);
+}
+
+function getLastUpdated(metadata) {
+    let dates = {};
+    for (type in metadata) {
+        for (obj of metadata[type]) {
+            if (obj.hasOwnProperty('id') && obj.hasOwnProperty('lastUpdated')) {
+                dates[obj.id] = Date.parse(obj.lastUpdated + 'Z');
+            }
+        }
+    }
+
+    let latest = new Date(Object.values(dates).reduce((a,b) => {
+        return Math.max(a,b);
+    }));
+
+    return latest.toISOString().substring(0,19).replace(/[-:]/g, '');
 }
