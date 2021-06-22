@@ -290,6 +290,7 @@ function processDashboard() {
 	//Remove undesired properties from objects
 	removeProperties();
 	removeNameFromPTEA();
+	removeNameFromTETA();
 
 	//Remove current configuration of indicators and cateogry option groups
 	clearIndicatorFormulas();
@@ -482,6 +483,7 @@ function processAggregate() {
 	//Remove undesired properties from objects
 	removeProperties();
 	removeNameFromPTEA();
+	removeNameFromTETA();
 
 	//Configure sharing and metadata ownership
 	configureSharing();
@@ -680,6 +682,7 @@ function processTracker() {
 	//Remove undesired properties from objects
 	removeProperties();
 	removeNameFromPTEA();
+	removeNameFromTETA();
 
 	//Reset/remove lat/long/zoom on maps
 	clearMapZoom();
@@ -2223,6 +2226,22 @@ function removeNameFromPTEA() {
 					if (ptea.name) delete ptea.name;
 					if (ptea.displayName) delete ptea.displayName;
 					if (ptea.displayShortName) delete ptea.displayShortName;
+				}
+			}
+		}
+	}
+}
+
+function removeNameFromTETA() {
+	if (metaData.trackedEntityTypes && metaData.trackedEntityTypes.length > 0) {
+
+		let tea, teta;
+		for (tea of metaData.trackedEntityTypes) {
+			if (tea.hasOwnProperty('trackedEntityTypeAttributes')) {
+				for (teta of tea.trackedEntityTypeAttributes) {
+					if (teta.name) delete teta.name;
+					if (teta.displayName) delete teta.displayName;
+					if (teta.displayShortName) delete teta.displayShortName;
 				}
 			}
 		}
