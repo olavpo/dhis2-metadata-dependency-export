@@ -408,12 +408,13 @@ function makeReferenceList(basePath, metaData) {
 			cc = metaData.categoryCombos[i];
 			elements = [];
 
-			for (var j = 0; j < cc.categories.length; j++) {
-				for (var k = 0; k < metaData.categories.length; k++) {
-					if (cc.categories[j].id == metaData.categories[k].id) elements.push(metaData.categories[k].name);
+			if (metaData.categories && metaData.categories.length > 0) {
+				for (var j = 0; j < cc.categories.length; j++) {
+					for (var k = 0; k < metaData.categories.length; k++) {
+						if (cc.categories[j].id == metaData.categories[k].id) elements.push(metaData.categories[k].name);
+					}
 				}
 			}
-
 			tab.push([cc.name, (cc.lastUpdated ? cc.lastUpdated.substr(0, 10) : ""), cc.id, (elements.length > 0 ? elements.join("; ") : " ")]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "categoryCombos");
