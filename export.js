@@ -20,6 +20,7 @@ var lastUrl = "";
 var currentExport;
 var customObjectsExported = {};
 var exporting = false;
+var sharedTypes = ["dataSets", "dashboards", "programStages", "programs", "trackedEntityTypes"]
 
 var dhis2schema;
 var dhis2version;
@@ -185,6 +186,7 @@ function connectAndExport(username,password) {
 		console.log("\nConnected to instance: " + result.systemName);
 
 		currentExport._system = result;
+		currentExport._system._version = currentExport._system.version.split('.');
 		lastSystem = result;
 		lastUrl = currentExport.url;
 		dhis2version = result.version;
@@ -1427,6 +1429,22 @@ function setSharing(objectType, object) {
 	var dataSharing = dataShareable(objectType);
 	var conf = currentExport._sharing;
 
+	//Public access - Set on all objects
+	if (conf.hasOwnProperty("publicAccess")) {
+		var accessString = sharingString(conf.publicAccess.metadata);
+		if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
+		else accessString += "------";
+		object.publicAccess = accessString;
+	}
+
+	//New conservative sharing - assign sharing to select object types only; apply sharing to all objects by supplying "-s" argument
+	if (!args.s) {
+		if (!sharedTypes.includes(objectType)) {
+			object.userAccesses = [];
+			object.userGroupAccesses = [];
+			return;
+		}
+	}
 	//User sharing
 	object.userAccesses = setAccesses(conf.userMode, conf.users, dataSharing, object.userAccesses);
 
@@ -1434,14 +1452,8 @@ function setSharing(objectType, object) {
 	object.userGroupAccesses = setAccesses(conf.groupMode, conf.groups, dataSharing, object.userGroupAccesses);
 
 	//DHIS2 v2.36+ sharing object
-	object.sharing = setSharingObject(conf, currentExport._ownership, dataSharing, object.sharing ? object.sharing : undefined, object.externalAccess ? object.externalAccess : undefined);
-
-	//Public access
-	if (conf.hasOwnProperty("publicAccess")) {
-		var accessString = sharingString(conf.publicAccess.metadata);
-		if (dataSharing) accessString += sharingString(conf.publicAccess.data) + "----";
-		else accessString += "------";
-		object.publicAccess = accessString;
+	if (currentExport._system._version[1] > 35) {
+		object.sharing = setSharingObject(conf, currentExport._ownership, dataSharing, object.sharing ? object.sharing : undefined, object.externalAccess ? object.externalAccess : undefined);
 	}
 }
 
