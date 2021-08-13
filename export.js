@@ -1331,7 +1331,7 @@ function setAccesses(mode, configAccesses, dataShareable, currentAccesses) {
 
 }
 
-function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSharingObj, currentExternalAccess) {
+function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSharingObj, currentExternalAccess, objectType) {
 	let sharingObj = currentSharingObj ? currentSharingObj : {};
 	sharingObj.external = currentExternalAccess ? true : false;
 
@@ -1356,6 +1356,7 @@ function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSh
 
 			case "OVERWRITE":
 				sharingObj.users = {};
+				if (!args.s && !sharedTypes.includes(objectType)) break;
 				for (usr of sharingConfig.users) {
 
 					let accessString = sharingString(usr.metadata);
@@ -1394,6 +1395,7 @@ function setSharingObject(sharingConfig, ownershipConfig, dataSharing, currentSh
 
 			case "OVERWRITE":
 				sharingObj.userGroups = {};
+				if (!args.s && !sharedTypes.includes(objectType)) break;
 				for (let grp of sharingConfig.groups) {
 
 					let accessString = sharingString(grp.metadata);
@@ -1436,6 +1438,10 @@ function setSharing(objectType, object) {
 		else accessString += "------";
 		object.publicAccess = accessString;
 	}
+	//DHIS2 v2.36+ sharing object
+	if (currentExport._system._version[1] > 35) {
+		object.sharing = setSharingObject(conf, currentExport._ownership, dataSharing, object.sharing ? object.sharing : undefined, object.externalAccess ? object.externalAccess : undefined, objectType);
+	}
 
 	//New conservative sharing - assign sharing to select object types only; apply sharing to all objects by supplying "-s" argument
 	if (!args.s) {
@@ -1450,11 +1456,6 @@ function setSharing(objectType, object) {
 
 	//User group sharing
 	object.userGroupAccesses = setAccesses(conf.groupMode, conf.groups, dataSharing, object.userGroupAccesses);
-
-	//DHIS2 v2.36+ sharing object
-	if (currentExport._system._version[1] > 35) {
-		object.sharing = setSharingObject(conf, currentExport._ownership, dataSharing, object.sharing ? object.sharing : undefined, object.externalAccess ? object.externalAccess : undefined);
-	}
 }
 
 
@@ -1515,9 +1516,9 @@ function configureOwnership() {
 				}
 			}
 			if (currentExport.hasOwnProperty("_ownership") && obj.hasOwnProperty("createdBy")) {
-				if (currentExport._ownership.modeCreatedBy == "REMOVE") {
+				if (currentExport._ownership.modeOwner == "REMOVE") {
 					delete obj.createdBy;
-				} else if (currentExport._ownership.modeCreatedBy == "OVERWRITE") {
+				} else if (currentExport._ownership.modeOwner == "OVERWRITE") {
 					obj.createdBy = {
 						"id": currentExport._ownership.ownerId
 					}
@@ -2222,6 +2223,11 @@ function removeProperties() {
 			for (prop of propsToRemove) {
 				if (obj.hasOwnProperty(prop)) {
 					delete obj[prop];
+				};
+				
+				// Remove user references from "favorites"
+				if (obj.hasOwnProperty('favorites') && obj.favorites.length > 0) {
+					obj.favorites = [];
 				}
 			}
 		}
