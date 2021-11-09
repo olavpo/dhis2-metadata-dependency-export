@@ -132,7 +132,7 @@ function makeReferenceList(basePath, metaData) {
 			tab.push(["Name:", "" + ds.name]);
 			tab.push(["Custom form:", ds.dataEntryForm ? ds.dataEntryForm.id : "No"]);
 			tab.push(["Sections:", (dsSec.length > 0 ? "Yes" : "No")]);
-			tab.push(["Last updated", ds.lastUpdated.substr(0, 10)]);
+			tab.push(["Last updated", (ds.lastUpdated ? ds.lastUpdated.substr(0, 10) : "")]);
 			tab.push(["UID:", ds.id]);
 			xldataSetTab.push([ds.name, (ds.dataEntryForm ? ds.dataEntryForm.id : "No"), (dsSec.length > 0 ? "Yes" : "No"), (ds.lastUpdated ? ds.lastUpdated.substr(0, 10) : ""), ds.id]);
 
@@ -144,7 +144,7 @@ function makeReferenceList(basePath, metaData) {
 				tab = [["Section", "Last updated", "UID"]];
 
 				for (var sec of sections(ds, metaData)) {
-					tab.push([sec.name, sec.lastUpdated.substr(0, 10), sec.id]);
+					tab.push([sec.name, (sec.lastUpdated ? sec.lastUpdated.substr(0, 10) : ""), sec.id]);
 					xlSectionTab.push([ds.name, sec.name, (sec.lastUpdated ? sec.lastUpdated.substr(0, 10) : ""), sec.id]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
