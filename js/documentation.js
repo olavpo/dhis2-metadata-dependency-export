@@ -53,10 +53,10 @@ function makeReferenceList(basePath, metaData) {
 			tab.push(["Name", metaData.package.name]);
 		}
 		content += utils.htmlTableFromArrayVertical(tab);
-		
+
 		referenced["package"] = true;
 		toc.push({ "id": "package", "name": "Package ID" });
-		
+
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "Package info");
 	}
 
@@ -156,7 +156,7 @@ function makeReferenceList(basePath, metaData) {
 				var dataSetSectionElementList = dataSetSectionElement(ds, metaData);
 				for (var row of dataSetSectionElementList) {
 					tab.push([row.section, row.dataElement]);
-					xlDataSetSectTab.push([sec.name, (row.section ? row.section : "Missing") , (row.sectionId ? row.sectionId : "Missing"), row.dataElement, (row.dataElementId ? row.dataElementId : "Missing")]);
+					xlDataSetSectTab.push([sec.name, (row.section ? row.section : "Missing"), (row.sectionId ? row.sectionId : "Missing"), row.dataElement, (row.dataElementId ? row.dataElementId : "Missing")]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
 			}
@@ -199,7 +199,9 @@ function makeReferenceList(basePath, metaData) {
 		let xlStageTab = [["Program Stage", "UID", "Last updated", "Program UID"]];
 		let xlSectTab = [["Program Stage", "Program Stage Section", "Data Element"]];
 		let xlProgIndTab = [["UID", "Name", "Shortname", "Code", "Description", "Analytics Type", "Last updated", "Program UID"]];
-		let xlProgRuleTab = [["UID", "Program rule", "Description", "Last updated", "Program UID"]];
+		let xlProgRuleTab = [["UID", "name", "description", "condition", "Program UID"]];
+		let xlProgRuleActionTab = [["UID", "programRule UID", "programRuleActionType", "data", "content"]];
+		let xlProgRuleVariableTab = [["UID", "name", "programRuleVariableSourceType", "useCodeForOptionSet", "program UID", "programStage UID"]]
 		let xlPteaTab = [["Program Tracked Entity Attribute UID", "Tracked Entity Attribute Name", "Tracked Entity Attribute UID", "Last updated", "Program UID"]];
 
 		content += utils.htmlHeader("Programs", 2, "programs");
@@ -256,15 +258,16 @@ function makeReferenceList(basePath, metaData) {
 				toc.push({ "id": "programIndicators", "name": "Program Indicators" });
 
 				content += utils.htmlHeader("Program Indicators", 2, "programIndicators");
-				tab = [["Name", "Shortname", "Code", "Description", "Analytics Type", "Last updated", "UID"]];
+				tab = [["UID", "name", "shortName", "code", "description", "analyticsType", "expression", "filter", "decimals", "program UID", "programIndicatorGroupUIDs"]];
 
 				var ind, type;
 				for (var i = 0; i < metaData.programIndicators.length; i++) {
 					ind = metaData.programIndicators[i];
 
-					tab.push([ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : " "),
-					ind.analyticsType, (ind.lastUpdated ? ind.lastUpdated.substr(0, 10) : ""), ind.id]);
-					xlProgIndTab.push([ind.id, ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""), ind.analyticsType, (ind.lastUpdated ? ind.lastUpdated.substr(0, 10) : ""), prog.id]);
+					tab.push([ind.id, ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : " "),
+					ind.analyticsType, ind.expression, ind.filter, ind.decimals, ind.program.id, progIndGroupsFromProgInd(ind.programIndicatorGroups)]);
+					xlProgIndTab.push([ind.id, ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""), ind.analyticsType,
+					ind.expression, ind.filter, ind.decimals, ind.program.id, progIndGroupsFromProgInd(ind.programIndicatorGroups)]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
 			}
@@ -278,9 +281,26 @@ function makeReferenceList(basePath, metaData) {
 
 				for (var pr of programRules) {
 					tab.push([pr.name, (pr.description ? pr.description : ""), (pr.lastUpdated ? pr.lastUpdated.substr(0, 10) : ""), pr.id]);
-					xlProgRuleTab.push([pr.id, pr.name, (pr.description ? pr.description : ""), (pr.lastUpdated ? pr.lastUpdated.substr(0, 10) : ""), prog.id]);
+					xlProgRuleTab.push([pr.id, pr.name, (pr.description ? pr.description : ""), pr.condition, prog.id]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
+			}
+
+			//Program Rule Actions
+			if (metaData.programRuleActions && metaData.programRuleActions.length > 0) {
+				let pra;
+				for (let i = 0; i < metaData.programRuleActions.length; i++) {
+					pra = metaData.programRuleActions[i];
+					xlProgRuleActionTab.push([pra.id, pra.programRule.id, pra.programRuleActionType, (pra.data ? pra.data : ""), (pra.content ? pra.content : "")]);
+				}
+			}
+
+			//Program Rule Variables
+			if (metaData.programRuleVariables && metaData.programRuleVariables.length > 0) {
+				let prv;
+				for (let i = 0; i < metaData.programRuleVariables.length; i++) {
+					xlProgRuleVariableTab.push([prv.id, prv.name, prv.programRuleVariableSourceType, prv.useCodeForOptionSet, prv.program.id, (prv.programStage.id ? prv.programStage.id : "")]);
+				}
 			}
 
 			//Program tracked entity attributes
@@ -300,7 +320,13 @@ function makeReferenceList(basePath, metaData) {
 		if (xlProgRuleTab.length > 1) {
 			utils.appendWorksheet(utils.sheetFromTable(xlProgRuleTab, true), wrkBook, "programRules");
 		}
-		utils.appendWorksheet(utils.sheetFromTable(xlPteaTab, true), wrkBook, "programTrackedEntityAttributes");
+		if (xlProgRuleActionTab.length > 1) {
+			utils.appendWorksheet(utils.sheetFromTable(xlProgRuleActionTab, true), wrkBook, "programRuleActions");
+		}
+		if (xlProgRuleVariableTab.length > 1) {
+			utils.appendWorksheet(utils.sheetFromTable(xlProgRuleActionTab, true), wrkBook, "programRuleVariables");
+		}
+		utils.appendWorksheet(utils.sheetFromTable(xlProgRuleVariableTab, true), wrkBook, "programTrackedEntityAttributes");
 	}
 
 	//relationshipTypes
@@ -357,12 +383,12 @@ function makeReferenceList(basePath, metaData) {
 		toc.push({ "id": "dataElements", "name": "Data Elements" });
 
 		content += utils.htmlHeader("Data Elements", 2, "dataElements");
-		tab = [["Name", "Shortname", "Code", "Description", "Categorycombo", "Last updated", "UID"]];
+		tab = [["UID", "name", "shortName", "code", "description", "domainType", "valueType", "zeroIsSignificant", "optionSet.id", "categoryCombo Name"]];
 
 		for (var i = 0; i < metaData.dataElements.length; i++) {
 			de = metaData.dataElements[i];
 			var comboName = getName(de.categoryCombo.id, metaData);
-			tab.push([de.name, de.shortName, (de.code ? de.code : ""), (de.description ? de.description : ""), comboName, (de.lastUpdated ? de.lastUpdated.substr(0, 10) : ""), de.id]);
+			tab.push([de.id, de.name, de.shortName, (de.code ? de.code : ""), (de.description ? de.description : ""), de.domainType, de.valueType, de.zeroIsSignificant, (de.optionSet.id ? de.optionSet.id : "") ,comboName]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataElements");
 		content += utils.htmlTableFromArray(tab, true);
@@ -631,12 +657,12 @@ function makeReferenceList(basePath, metaData) {
 		toc.push({ "id": "validationRules", "name": "Validation Rules" });
 
 		content += utils.htmlHeader("Validation Rules", 2, "validationRules");
-		tab = [["Name", "Instruction", "Left side", "Operator", "Right side", "Last updated", "UID"]];
+		tab = [["UID", "Name", "shortName", "code", "Instruction", "periodType", "Left side description", "Left side expression", "Operator", "Right side description", "Right side expression"]];
 
 		for (var i = 0; i < metaData.validationRules.length; i++) {
 			var vr = metaData.validationRules[i];
 
-			tab.push([vr.name, (vr.instruction ? vr.instruction : ""), vr.leftSide.description, vr.operator, vr.rightSide.description, (vr.lastUpdated ? vr.lastUpdated.substr(0, 10) : ""), vr.id]);
+			tab.push([vr.id, vr.name, (vr.shortName ? vr.shortName : ""), (vr.code ? vr.code : ""), (vr.instruction ? vr.instruction : ""), vr.periodType, vr.leftSide.description, vr.leftSide.expression, vr.operator, vr.rightSide.description, vr.rightSide.expression]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "validationRules");
 		content += utils.htmlTableFromArray(tab, true);
@@ -712,7 +738,7 @@ function makeReferenceList(basePath, metaData) {
 		toc.push({ "id": "predictors", "name": "Predictors" });
 
 		content += utils.htmlHeader("Predictors", 2, "predictors");
-		tab = [["Name", "Generator", "Sequential samples", "Annual samples", "Target data element", "Last updated", "UID"]];
+		tab = [["UID", "Name", "code", "periodType", "missingValueStrategy", "generator.description", "generator.expression", "Output data element", "outputCombo", "Sequential samples", "Annual samples"]];
 
 		var pred;
 		for (var i = 0; i < metaData.predictors.length; i++) {
@@ -722,8 +748,7 @@ function makeReferenceList(basePath, metaData) {
 			for (var j = 0; metaData.dataElements && j < metaData.dataElements.length; j++) {
 				if (metaData.dataElements[j].id === pred.output.id) targetName = metaData.dataElements[j].name;
 			}
-			tab.push([pred.name, pred.generator.description, pred.sequentialSampleCount, pred.annualSampleCount, targetName,
-				(pred.lastUpdated ? pred.lastUpdated.substr(0, 10) : ""), pred.id]);
+			tab.push([pred.id, pred.name, (pred.code ? pred.code : ""), pred.periodType, pred.generator.missingValueStrategy, pred.generator.description, pred.generator.expression, targetName, pred.outputCombo.id, pred.sequentialSampleCount, pred.annualSampleCount]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "predictors");
 		content += utils.htmlTableFromArray(tab, true);
@@ -770,7 +795,7 @@ function makeReferenceList(basePath, metaData) {
 		toc.push({ "id": "indicators", "name": "Indicators" });
 
 		content += utils.htmlHeader("Indicators", 2, "indicators");
-		tab = [["UID", "Name", "Shortname", "Code", "Description", "Numerator", "Denominator", "Type", "Last updated", "Indicator group UID"]];
+		tab = [["UID", "name", "shortName", "code", "description", "numerator", "numeratorDescription", "denominator", "denominatorDescription", "indicatorType", "decimals", "annualized", "indicatorGroup UIDs"]];
 
 		var ind, type;
 		for (var i = 0; i < metaData.indicators.length; i++) {
@@ -784,7 +809,7 @@ function makeReferenceList(basePath, metaData) {
 			}
 
 			tab.push([ind.id, ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""),
-			(ind.numeratorDescription ? ind.numeratorDescription : ""), (ind.denominatorDescription ? ind.denominatorDescription : ""), type, (ind.lastUpdated ? ind.lastUpdated.substr(0, 10) : ""), indicatorGroupsFromIndicator(ind.id, metaData.indicatorGroups)]);
+			ind.numerator, (ind.numeratorDescription ? ind.numeratorDescription : ""), ind.denominator, (ind.denominatorDescription ? ind.denominatorDescription : ""), type, ind.decimals, ind.annualized, indicatorGroupsFromIndicator(ind.id, metaData.indicatorGroups)]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "indicators");
 		content += utils.htmlTableFromArray(tab, true);
@@ -857,8 +882,8 @@ function makeReferenceList(basePath, metaData) {
 			db = metaData.dashboards[i];
 
 			content += utils.htmlHeader(db.name, 3);
-			tab = [["Name", "Last updated", "UID"]];
-			tabTemp = ([db.name, (db.lastUpdated ? db.lastUpdated.substr(0, 10) : ""), db.id]);
+			tab = [["UID", "Name", "code", "description"]];
+			tabTemp = ([db.id, db.name, (db.code ? db.code : ""), (db.description ? db.description : "")]);
 			tab.push(tabTemp);
 			xlDashTab.push(tabTemp);
 			//tab.push([db.name, db.lastUpdated.substr(0,10), db.id]);
@@ -979,11 +1004,11 @@ function makeReferenceList(basePath, metaData) {
 		toc.push({ "id": "visualizations", "name": "Visualizations" });
 
 		content += utils.htmlHeader("Visualizations", 2, "visualizations");
-		tab = [["Name", "Description", "Last updated", "UID"]];
+		tab = [["UID", "Name", "title", "subTitle", "type", "userOrganisationUnit", "description"]];
 
 		for (let i = 0; i < metaData.visualizations.length; i++) {
 			let item = metaData.visualizations[i];
-			tab.push([(item.name ? item.name : ""), (item.description ? item.description : ""), (item.lastUpdated ? item.lastUpdated.substr(0, 10) : ""), item.id]);
+			tab.push([(item.id, item.name ? item.name : ""), (item.title ? item.title : ""), (item.subTitle ? item.subTitle : ""), item.type, item.userOrganisationUnit, (item.description ? item.description : "")]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "visualizations");
 		content += utils.htmlTableFromArray(tab, true);
@@ -1199,7 +1224,7 @@ function makeReferenceList(basePath, metaData) {
 
 		for (let i = 0; i < metaData.interpretations.length; i++) {
 			let item = metaData.interpretations[i];
-			tab.push([item.id, (item.lastUpdated ?item.lastUpdated : ""), (item.text ? item.text : "")]);
+			tab.push([item.id, (item.lastUpdated ? item.lastUpdated : ""), (item.text ? item.text : "")]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "interpretations");
 		content += utils.htmlTableFromArray(tab, true);
@@ -1646,6 +1671,25 @@ function indicatorGroupsFromIndicator(id, indicatorGroups) {
 						groups.push(group.id);
 					}
 				}
+			}
+		}
+	}
+	if (groups.length > 0) {
+		groupStr = groups.join(", ");
+	} else {
+		groupStr = "";
+	}
+	return groupStr;
+}
+
+function progIndGroupsFromProgInd(progInd_progIndGroups) {
+	let groups = [];
+	let groupStr;
+	if (progIndGroups && progIndGroups.length > 0) {
+		for (let i = 0; i < progIndGroups.length; i++) {
+			let group = progIndGroups[i];
+			if (group.hasOwnProperty("id")) {
+				groups.push(group.id);
 			}
 		}
 	}
