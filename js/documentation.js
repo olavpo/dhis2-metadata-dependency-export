@@ -198,7 +198,7 @@ function makeReferenceList(basePath, metaData) {
 		let xlProgTab = [["Name", "Tracked Entity Type", "Last updated", "UID"]];
 		let xlStageTab = [["Program Stage", "UID", "Last updated", "Program UID"]];
 		let xlSectTab = [["Program Stage", "Program Stage Section", "Data Element"]];
-		let xlProgIndTab = [["UID", "Name", "Shortname", "Code", "Description", "Analytics Type", "Last updated", "Program UID"]];
+		let xlProgIndTab = [["UID", "name", "shortName", "code", "description", "analyticsType", "expression", "filter", "decimals", "program UID", "programIndicatorGroupUIDs"]];
 		let xlProgRuleTab = [["UID", "name", "description", "condition", "Program UID"]];
 		let xlProgRuleActionTab = [["UID", "programRule UID", "programRuleActionType", "data", "content"]];
 		let xlProgRuleVariableTab = [["UID", "name", "programRuleVariableSourceType", "useCodeForOptionSet", "program UID", "programStage UID"]]
@@ -262,12 +262,16 @@ function makeReferenceList(basePath, metaData) {
 
 				var ind, type;
 				for (var i = 0; i < metaData.programIndicators.length; i++) {
+					let programId = "";
 					ind = metaData.programIndicators[i];
+					if (ind.prgoram && ind.program.id) {
+						programId = ind.program.id;
+					}
 
 					tab.push([ind.id, ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : " "),
 					ind.analyticsType, ind.expression, ind.filter, ind.decimals, ind.program.id, progIndGroupsFromProgInd(ind.programIndicatorGroups)]);
 					xlProgIndTab.push([ind.id, ind.name, ind.shortName, (ind.code ? ind.code : ""), (ind.description ? ind.description : ""), ind.analyticsType,
-					ind.expression, ind.filter, ind.decimals, ind.program.id, progIndGroupsFromProgInd(ind.programIndicatorGroups)]);
+					ind.expression, ind.filter, (ind.decimals ? ind.decimals : ""), programId, progIndGroupsFromProgInd(ind.programIndicatorGroups)]);
 				}
 				content += utils.htmlTableFromArray(tab, true);
 			}
@@ -299,7 +303,12 @@ function makeReferenceList(basePath, metaData) {
 			if (metaData.programRuleVariables && metaData.programRuleVariables.length > 0) {
 				let prv;
 				for (let i = 0; i < metaData.programRuleVariables.length; i++) {
-					xlProgRuleVariableTab.push([prv.id, prv.name, prv.programRuleVariableSourceType, prv.useCodeForOptionSet, prv.program.id, (prv.programStage.id ? prv.programStage.id : "")]);
+					let programStageId = "";
+					prv = metaData.programRuleVariables[i];
+					if (prv.programStage) {
+						programStageId = prv.programStage.id;
+					}
+					xlProgRuleVariableTab.push([prv.id, prv.name, prv.programRuleVariableSourceType, prv.useCodeForOptionSet, prv.program.id, (programStageId ? programStageId : "")]);
 				}
 			}
 
@@ -388,7 +397,7 @@ function makeReferenceList(basePath, metaData) {
 		for (var i = 0; i < metaData.dataElements.length; i++) {
 			de = metaData.dataElements[i];
 			var comboName = getName(de.categoryCombo.id, metaData);
-			tab.push([de.id, de.name, de.shortName, (de.code ? de.code : ""), (de.description ? de.description : ""), de.domainType, de.valueType, de.zeroIsSignificant, (de.optionSet.id ? de.optionSet.id : "") ,comboName]);
+			tab.push([de.id, de.name, de.shortName, (de.code ? de.code : ""), (de.description ? de.description : ""), de.domainType, de.valueType, de.zeroIsSignificant, (de.optionSet ? de.optionSet.id : "") ,comboName]);
 		}
 		utils.appendWorksheet(utils.sheetFromTable(tab, true), wrkBook, "dataElements");
 		content += utils.htmlTableFromArray(tab, true);
@@ -1685,9 +1694,9 @@ function indicatorGroupsFromIndicator(id, indicatorGroups) {
 function progIndGroupsFromProgInd(progInd_progIndGroups) {
 	let groups = [];
 	let groupStr;
-	if (progIndGroups && progIndGroups.length > 0) {
-		for (let i = 0; i < progIndGroups.length; i++) {
-			let group = progIndGroups[i];
+	if (progInd_progIndGroups && progInd_progIndGroups.length > 0) {
+		for (let i = 0; i < progInd_progIndGroups.length; i++) {
+			let group = progInd_progIndGroups[i];
 			if (group.hasOwnProperty("id")) {
 				groups.push(group.id);
 			}
