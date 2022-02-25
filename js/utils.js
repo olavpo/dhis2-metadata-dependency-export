@@ -462,6 +462,7 @@ function appendWorksheet(sheet, book, name) {
 
 function saveWorkbook(book, file) {
 	XLSXs.writeFile(book, file);
+	console.log("✔ Reference list saved");
 }
 
 function getLastUpdated(metadata) {
